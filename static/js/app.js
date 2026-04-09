@@ -195,13 +195,14 @@
             const s = r.scoring;
             const e = r.extracted;
             const scoreColor = getScoreColor(s.final_score, s.category);
+            const coiFlag = s.coi_detected ? '<span style="color:var(--red);font-weight:600">COI</span>' : s.predatory_journal_detected ? '<span style="color:var(--red);font-weight:600">PRED</span>' : '<span style="color:var(--green)">OK</span>';
             return `<tr>
                 <td class="filename-cell" title="${escapeHtml(r.filename)}">${escapeHtml(r.filename)}</td>
                 <td class="score-cell" style="color:${scoreColor}">${s.final_score.toFixed(1)}</td>
                 <td><span class="category-badge category-${s.category}">${s.category_label}</span></td>
                 <td>${escapeHtml(e.study_design ? designLabel(e.study_design) : "—")}</td>
                 <td>${e.sample_size != null ? e.sample_size : "—"}</td>
-                <td>${escapeHtml(e.journal || "—")}</td>
+                <td>${coiFlag}</td>
                 <td>${r.confidence.confidence_pct.toFixed(0)}%</td>
                 <td><button class="expand-btn" onclick="window.__scrollToCard(${i})">Details</button></td>
             </tr>`;
@@ -217,7 +218,7 @@
                         <th>Category</th>
                         <th>Design</th>
                         <th>N</th>
-                        <th>Journal</th>
+                        <th>Flags</th>
                         <th>Confidence</th>
                         <th></th>
                     </tr>
@@ -330,6 +331,9 @@
                     <div class="detail-row"><span class="label">Sample Size</span><span class="value">${e.sample_size != null ? e.sample_size : "—"}</span></div>
                     <div class="detail-row"><span class="label">Population</span><span class="value">${escapeHtml(popLabel(e.population_type))}</span></div>
                     <div class="detail-row"><span class="label">Sport</span><span class="value">${escapeHtml(e.sport || "—")}</span></div>
+                    <div class="detail-row"><span class="label">Context</span><span class="value">${escapeHtml(ctxLabel(e.ecological_context))}</span></div>
+                    <div class="detail-row"><span class="label">Control Group</span><span class="value ${e.has_control_group === true ? "value-positive" : e.has_control_group === false ? "value-negative" : "value-neutral"}">${e.has_control_group === true ? "Yes" : e.has_control_group === false ? "No" : "—"}</span></div>
+                    <div class="detail-row"><span class="label">Registered Protocol</span><span class="value ${e.registered_protocol === true ? "value-positive" : "value-neutral"}">${e.registered_protocol === true ? "Yes" : e.registered_protocol === false ? "No" : "—"}</span></div>
                     ${e.doi ? `<div class="detail-row"><span class="label">DOI</span><span class="value">${escapeHtml(e.doi)}</span></div>` : ""}
                 </div>
 
@@ -339,16 +343,20 @@
                     <div class="detail-row"><span class="label">Design Cap</span><span class="value">${s.design_cap}/10</span></div>
                     <div class="detail-row"><span class="label">Base Methodology</span><span class="value">${s.base_methodology_score.toFixed(1)}</span></div>
                     <div class="detail-row"><span class="label">Sample Adj.</span><span class="value ${s.sample_size_adjustment > 0 ? "value-positive" : s.sample_size_adjustment < 0 ? "value-negative" : "value-neutral"}">${s.sample_size_adjustment > 0 ? "+" : ""}${s.sample_size_adjustment.toFixed(1)}</span></div>
+                    ${s.large_sample_bonus > 0 ? `<div class="detail-row"><span class="label">Large Sample (N&gt;500)</span><span class="value value-positive">+${s.large_sample_bonus.toFixed(1)}</span></div>` : ""}
                     ${s.elite_exception_applied ? `<div class="detail-row"><span class="label">Elite Exception</span><span class="value value-positive">Applied</span></div>` : ""}
-                    <div class="detail-row"><span class="label">Institution Bonus</span><span class="value ${s.institutional_bonus > 0 ? "value-positive" : "value-neutral"}">${s.bonuses_nullified ? "Nullified" : (s.institutional_bonus > 0 ? "+" + s.institutional_bonus.toFixed(1) : "0.0")}</span></div>
-                    <div class="detail-row"><span class="label">Journal Bonus</span><span class="value ${s.journal_bonus > 0 ? "value-positive" : "value-neutral"}">${s.bonuses_nullified ? "Nullified" : (s.journal_bonus > 0 ? "+" + s.journal_bonus.toFixed(1) : "0.0")}</span></div>
-                    ${s.coi_detected ? `<div class="detail-row"><span class="label">COI Penalty</span><span class="value value-negative">-${s.coi_penalty.toFixed(1)}</span></div>` : ""}
+                    ${s.registered_protocol_bonus > 0 ? `<div class="detail-row"><span class="label">Registered Protocol</span><span class="value value-positive">+${s.registered_protocol_bonus.toFixed(1)}</span></div>` : ""}
+                    <div class="detail-row"><span class="label">Institution Bonus</span><span class="value ${s.institutional_bonus > 0 ? "value-positive" : "value-neutral"}">${s.bonuses_nullified ? "Nullified (COI)" : (s.institutional_bonus > 0 ? "+" + s.institutional_bonus.toFixed(1) : "0.0")}</span></div>
+                    <div class="detail-row"><span class="label">Journal Bonus</span><span class="value ${s.journal_bonus > 0 ? "value-positive" : "value-neutral"}">${s.bonuses_nullified ? "Nullified (COI)" : (s.journal_bonus > 0 ? "+" + s.journal_bonus.toFixed(1) : "0.0")}</span></div>
+                    ${s.coi_detected ? `<div class="detail-row"><span class="label">COI Penalty (${escapeHtml(s.coi_severity || "obvious")})</span><span class="value value-negative">-${s.coi_penalty.toFixed(1)}</span></div>` : ""}
+                    ${s.predatory_journal_detected ? `<div class="detail-row"><span class="label">Predatory Journal</span><span class="value value-negative">BLACK FLAG</span></div>` : ""}
                 </div>
 
                 <!-- COI & Funding -->
                 <div class="detail-section">
                     <h4>Funding &amp; Conflicts</h4>
-                    <div class="detail-row"><span class="label">COI Detected</span><span class="value ${s.coi_detected ? "value-negative" : "value-positive"}">${s.coi_detected ? "YES" : "No"}</span></div>
+                    <div class="detail-row"><span class="label">COI Detected</span><span class="value ${s.coi_detected ? "value-negative" : "value-positive"}">${s.coi_detected ? "YES (" + escapeHtml(s.coi_severity || "obvious") + ")" : "No"}</span></div>
+                    ${e.coi_severity === "ambiguous" && !s.coi_detected ? `<div class="detail-row"><span class="label">COI Severity</span><span class="value" style="color:var(--yellow)">Ambiguous (not penalized)</span></div>` : ""}
                     ${e.funding_sources && e.funding_sources.length > 0
                         ? `<div class="detail-row"><span class="label">Funders</span><span class="value">${escapeHtml(e.funding_sources.join(", "))}</span></div>`
                         : `<div class="detail-row"><span class="label">Funders</span><span class="value value-neutral">Not reported</span></div>`}
@@ -419,6 +427,15 @@
     };
 
     function popLabel(p) { return POP_LABELS[p] || p || "—"; }
+
+    const CTX_LABELS = {
+        field: "Field (Ecological)",
+        laboratory: "Laboratory",
+        mixed: "Mixed",
+        unclear: "Unclear",
+    };
+
+    function ctxLabel(c) { return CTX_LABELS[c] || c || "—"; }
 
     function escapeHtml(str) {
         if (!str) return "";

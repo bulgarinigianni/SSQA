@@ -82,6 +82,13 @@ class ExtractedData(BaseModel):
         None,
         description="True if a funding source commercially sells the product being tested",
     )
+    coi_severity: str | None = Field(
+        None,
+        description="One of: obvious, ambiguous, none. "
+        "'obvious' = funder explicitly sells the tested product and authors have disclosed ties. "
+        "'ambiguous' = potential link but not clearly stated. "
+        "'none' = no conflict detected.",
+    )
 
     pedro_criteria: PEDroCriteria | None = Field(
         None, description="PEDro criteria — only for RCT designs"
@@ -90,6 +97,19 @@ class ExtractedData(BaseModel):
     statistical_methods: str | None = None
     effect_size_reported: bool | None = None
     confidence_intervals_reported: bool | None = None
+    has_control_group: bool | None = Field(
+        None, description="True if the study includes a control/comparison group"
+    )
+    ecological_context: str | None = Field(
+        None,
+        description="One of: field, laboratory, mixed, unclear. "
+        "'field' = data collected during real training/competition. "
+        "'laboratory' = controlled lab environment.",
+    )
+    registered_protocol: bool | None = Field(
+        None,
+        description="True if the study protocol was pre-registered (e.g. ClinicalTrials.gov, PROSPERO, OSF)",
+    )
     main_findings_summary: str | None = None
 
     extraction_notes: str | None = Field(
@@ -107,14 +127,19 @@ class ScoringBreakdown(BaseModel):
     pedro_score: int | None = None
     pedro_answered: int | None = None
     sample_size_adjustment: float = 0.0
+    large_sample_bonus: float = 0.0
     elite_exception_applied: bool = False
     institutional_bonus: float = 0.0
     institutional_matches: list[str] = Field(default_factory=list)
     journal_bonus: float = 0.0
     journal_match: str | None = None
+    registered_protocol_bonus: float = 0.0
     coi_detected: bool = False
+    coi_severity: str | None = None
     coi_penalty: float = 0.0
     bonuses_nullified: bool = False
+    predatory_journal_detected: bool = False
+    predatory_journal_match: str | None = None
     raw_score: float
     final_score: float
     category: str

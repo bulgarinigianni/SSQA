@@ -1,12 +1,14 @@
 """Weighted scoring engine for sport-science paper quality assessment.
 
 Scoring pipeline:
-1. Determine study design → sets the maximum possible score (cap)
+1. Determine study design -> sets the maximum possible score (cap)
 2. Compute base methodology score within that cap
-3. Apply bonuses (institutional authority, journal prestige)
-4. Apply COI filter (nullifies bonuses, heavy penalty)
-5. Apply elite-athlete exception for small samples
-6. Clamp to [1, 10] and classify into category
+3. Apply sample-size adjustments (elite exception + large-sample bonus)
+4. Apply quality bonuses (institution, journal, field study, registered protocol)
+5. Apply quality penalties (no control group)
+6. Apply COI filter: only when OBVIOUS -> penalty + bonuses nullified (NOT black flag)
+7. Check for predatory journal -> BLACK FLAG (only trigger for this category)
+8. Clamp to [1, 10] and classify into category
 """
 
 from __future__ import annotations
@@ -139,19 +141,71 @@ ELITE_JOURNALS: list[str] = [
 JOURNAL_BONUS = 0.5
 
 # ---------------------------------------------------------------------------
-# 4. COI Penalty
+# 4. Predatory / Questionable Journals -> BLACK FLAG
 # ---------------------------------------------------------------------------
-COI_PENALTY = 3.0  # Points deducted when COI detected
+PREDATORY_INDICATORS: list[str] = [
+    # Known predatory publishers
+    "omics international",
+    "omics group",
+    "science domain",
+    "sciencedomain",
+    "waset",
+    "world academy of science",
+    "david publishing",
+    "iosr journal",
+    "ijser",
+    "ijsrp",
+    "ijera",
+    "iiste",
+    "scienceopen",
+    "zenodo",  # not a journal, preprint archive sometimes misused
+    "academic journals inc",
+    "granthaalayah",
+    "sryahwa",
+    "medwin publishers",
+    "crimson publishers",
+    "lupine publishers",
+    "juniper publishers",
+    "iris publishers",
+    "scitechnol",
+    "longdom",
+    "hilaris",
+    "imedpub",
+    "allied academies",
+    "pulsus",
+    "insight medical publishing",
+    "opast",
+    "open access text",
+    "biomedres",
+    # Patterns / red-flag keywords (partial match)
+    "predatory",
+    "pay-to-publish",
+]
 
 # ---------------------------------------------------------------------------
-# 5. Sample size thresholds
+# 5. COI Penalty (only for obvious COI)
 # ---------------------------------------------------------------------------
+COI_PENALTY_OBVIOUS = 3.0
+
+# ---------------------------------------------------------------------------
+# 6. Sample size thresholds
+# ---------------------------------------------------------------------------
+SAMPLE_SIZE_LARGE = 500
 SAMPLE_SIZE_GOOD = 50
 SAMPLE_SIZE_MODERATE = 20
 SAMPLE_SIZE_SMALL = 10
 
+LARGE_SAMPLE_BONUS = 0.4
+
 ELITE_POPULATION_TYPES = {"elite", "professional"}
 
+# ---------------------------------------------------------------------------
+# 7. Additional bonuses
+# ---------------------------------------------------------------------------
+REGISTERED_PROTOCOL_BONUS = 0.3
+
+
+# ===== Matching helpers =====
 
 def _match_institution(affiliations: list[str]) -> list[str]:
     """Return list of matched elite institutions."""
@@ -174,18 +228,28 @@ def _match_journal(journal: str | None) -> str | None:
     return None
 
 
+def _match_predatory(journal: str | None) -> str | None:
+    """Return the matched predatory indicator or None."""
+    if not journal:
+        return None
+    j_lower = journal.lower()
+    for p in PREDATORY_INDICATORS:
+        if p in j_lower:
+            return p
+    return None
+
+
+# ===== Base methodology scoring =====
+
 def _base_methodology_score_rct(data: ExtractedData, cap: float) -> tuple[float, int | None, int | None]:
     """Score an RCT using PEDro criteria. Returns (score, pedro_score, pedro_answered)."""
     if data.pedro_criteria is None:
-        # If LLM couldn't extract PEDro, give a conservative mid-range score
         return cap * 0.5, None, None
 
     pedro = data.pedro_criteria
     pedro_score = pedro.score()
     pedro_answered = pedro.answered_count()
 
-    # PEDro is out of 10; scale to cap
-    # Score = (pedro_score / 10) * cap
     score = (pedro_score / 10.0) * cap
     return score, pedro_score, pedro_answered
 
@@ -193,67 +257,73 @@ def _base_methodology_score_rct(data: ExtractedData, cap: float) -> tuple[float,
 def _base_methodology_score_generic(data: ExtractedData, cap: float) -> float:
     """Score a non-RCT study based on available methodology indicators.
 
-    The score starts at 60% of the cap (every published paper deserves a
-    baseline) and then adjusts up/down based on quality signals.
+    Starts at 60% of cap, then adjusts based on quality signals.
     """
     base = cap * 0.6
     adjustments = 0.0
 
-    # Factor 1: Sample size (relative to design expectations)
     if data.sample_size is not None:
         if data.sample_size >= SAMPLE_SIZE_GOOD:
             adjustments += cap * 0.15
         elif data.sample_size >= SAMPLE_SIZE_MODERATE:
             adjustments += cap * 0.08
         elif data.sample_size >= SAMPLE_SIZE_SMALL:
-            adjustments += 0.0  # neutral — expected for some designs
+            adjustments += 0.0
         else:
-            adjustments -= cap * 0.05  # slight penalty, not catastrophic
+            adjustments -= cap * 0.05
 
-    # Factor 2: Statistical rigor
     if data.effect_size_reported is True:
         adjustments += cap * 0.08
     if data.confidence_intervals_reported is True:
         adjustments += cap * 0.07
-
-    # Factor 3: Methodology description quality
     if data.statistical_methods:
         adjustments += cap * 0.05
 
-    # Clamp within [cap * 0.3, cap]
     return max(cap * 0.3, min(cap, base + adjustments))
 
 
-def _sample_size_adjustment(data: ExtractedData) -> tuple[float, bool]:
-    """Calculate sample size penalty/bonus. Returns (adjustment, elite_exception_applied)."""
+# ===== Adjustments =====
+
+def _sample_size_adjustment(data: ExtractedData) -> tuple[float, float, bool]:
+    """Returns (standard_adjustment, large_sample_bonus, elite_exception_applied)."""
     if data.sample_size is None:
-        return 0.0, False
+        return 0.0, 0.0, False
 
     is_elite = data.population_type in ELITE_POPULATION_TYPES
+    std_adj = 0.0
+    large_bonus = 0.0
+    elite_exc = False
 
+    # Large sample bonus (N > 500)
+    if data.sample_size >= SAMPLE_SIZE_LARGE:
+        large_bonus = LARGE_SAMPLE_BONUS
+
+    # Standard adjustment for small samples
     if data.sample_size < SAMPLE_SIZE_SMALL:
         if is_elite:
-            # Elite exception: no penalty for small samples
-            return 0.0, True
-        return -1.0, False
-
-    if data.sample_size < SAMPLE_SIZE_MODERATE:
+            elite_exc = True
+        else:
+            std_adj = -1.0
+    elif data.sample_size < SAMPLE_SIZE_MODERATE:
         if is_elite:
-            return 0.0, True
-        return -0.5, False
+            elite_exc = True
+        else:
+            std_adj = -0.5
+    elif data.sample_size >= SAMPLE_SIZE_GOOD:
+        std_adj = 0.3
 
-    if data.sample_size >= SAMPLE_SIZE_GOOD:
-        return 0.3, False
-
-    return 0.0, False
+    return std_adj, large_bonus, elite_exc
 
 
-def _classify(score: float, coi_detected: bool) -> tuple[str, str]:
-    """Classify the final score into a category. Returns (category_key, label).
+# ===== Classification =====
 
-    BLACK FLAG is reserved exclusively for COI-compromised papers.
+def _classify(score: float, predatory: bool) -> tuple[str, str]:
+    """Classify the final score into a category.
+
+    BLACK FLAG is reserved EXCLUSIVELY for predatory journals.
+    COI papers keep their score-based category (with malus already applied).
     """
-    if coi_detected:
+    if predatory:
         return "black_flag", "BLACK FLAG"
     if score >= 8.5:
         return "gold_standard", "GOLD STANDARD"
@@ -263,6 +333,8 @@ def _classify(score: float, coi_detected: bool) -> tuple[str, str]:
         return "exploratory", "EXPLORATORY"
     return "weak", "WEAK"
 
+
+# ===== Explanation builder =====
 
 def _build_explanation(data: ExtractedData, breakdown: ScoringBreakdown) -> str:
     """Generate a human-readable explanation of the score."""
@@ -279,9 +351,12 @@ def _build_explanation(data: ExtractedData, breakdown: ScoringBreakdown) -> str:
 
     if breakdown.sample_size_adjustment != 0:
         if breakdown.sample_size_adjustment > 0:
-            parts.append(f"Large sample size bonus: +{breakdown.sample_size_adjustment:.1f}.")
+            parts.append(f"Sample size bonus: +{breakdown.sample_size_adjustment:.1f}.")
         else:
             parts.append(f"Small sample size penalty: {breakdown.sample_size_adjustment:.1f}.")
+
+    if breakdown.large_sample_bonus > 0:
+        parts.append(f"Large sample (N>{SAMPLE_SIZE_LARGE}) bonus: +{breakdown.large_sample_bonus:.1f}.")
 
     if breakdown.elite_exception_applied:
         n = data.sample_size or "unknown"
@@ -289,6 +364,9 @@ def _build_explanation(data: ExtractedData, breakdown: ScoringBreakdown) -> str:
             f"Elite athlete exception applied: sample of {n} accepted "
             f"as population is {data.population_type}."
         )
+
+    if breakdown.registered_protocol_bonus > 0:
+        parts.append(f"Pre-registered protocol bonus: +{breakdown.registered_protocol_bonus:.1f}.")
 
     if breakdown.institutional_bonus > 0:
         names = ", ".join(breakdown.institutional_matches[:3])
@@ -300,9 +378,16 @@ def _build_explanation(data: ExtractedData, breakdown: ScoringBreakdown) -> str:
         )
 
     if breakdown.coi_detected:
+        sev = breakdown.coi_severity or "obvious"
         parts.append(
-            "CONFLICT OF INTEREST DETECTED: funder sells the tested product. "
+            f"CONFLICT OF INTEREST ({sev}): funder sells the tested product. "
             f"COI penalty: -{breakdown.coi_penalty:.1f}. All bonuses nullified."
+        )
+
+    if breakdown.predatory_journal_detected:
+        parts.append(
+            f"PREDATORY JOURNAL DETECTED ({breakdown.predatory_journal_match}). "
+            "Automatic BLACK FLAG — evidence from this source cannot be trusted."
         )
 
     # Final verdict
@@ -316,13 +401,15 @@ def _build_explanation(data: ExtractedData, breakdown: ScoringBreakdown) -> str:
         parts.append(f"Verdict: {cat} ({score:.1f}/10) — interesting findings but limited generalizability.")
     elif cat == "WEAK":
         parts.append(f"Verdict: {cat} ({score:.1f}/10) — methodological limitations reduce confidence.")
-    else:
+    elif cat == "BLACK FLAG":
         parts.append(
-            f"Verdict: {cat} ({score:.1f}/10) — evidence compromised by conflicts of interest or critical flaws."
+            f"Verdict: {cat} ({score:.1f}/10) — published in a predatory journal; evidence unreliable."
         )
 
     return " ".join(parts)
 
+
+# ===== Confidence =====
 
 def compute_confidence(data: ExtractedData) -> ConfidenceReport:
     """Assess how complete the extraction was."""
@@ -340,6 +427,8 @@ def compute_confidence(data: ExtractedData) -> ConfidenceReport:
         "funder_sells_product": data.funder_sells_product,
         "statistical_methods": data.statistical_methods,
         "effect_size_reported": data.effect_size_reported,
+        "has_control_group": data.has_control_group,
+        "ecological_context": data.ecological_context,
         "main_findings_summary": data.main_findings_summary,
     }
 
@@ -364,12 +453,14 @@ def compute_confidence(data: ExtractedData) -> ConfidenceReport:
     )
 
 
+# ===== Main scoring pipeline =====
+
 def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisResult:
     """Run the full scoring pipeline on extracted paper data."""
     design = data.study_design or "other"
     cap = DESIGN_CAPS.get(design, 6.0)
 
-    # --- Base methodology score ---
+    # --- 1. Base methodology score ---
     pedro_score = None
     pedro_answered = None
     if design == "rct":
@@ -377,38 +468,53 @@ def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisR
     else:
         base = _base_methodology_score_generic(data, cap)
 
-    # --- Sample size adjustment ---
-    sample_adj, elite_exception = _sample_size_adjustment(data)
+    # --- 2. Sample size adjustments ---
+    sample_adj, large_bonus, elite_exception = _sample_size_adjustment(data)
 
-    # --- Bonuses ---
+    # --- 3. Quality bonuses ---
     inst_matches = _match_institution(data.affiliations)
     inst_bonus = INSTITUTIONAL_BONUS if inst_matches else 0.0
 
     journal_match = _match_journal(data.journal)
     j_bonus = JOURNAL_BONUS if journal_match else 0.0
 
-    # --- COI Filter ---
-    coi_detected = data.funder_sells_product is True
+    reg_bonus = REGISTERED_PROTOCOL_BONUS if data.registered_protocol is True else 0.0
+
+    # --- 4. COI filter (only OBVIOUS = apply; ambiguous = ignore) ---
+    coi_detected = (
+        data.funder_sells_product is True
+        and data.coi_severity == "obvious"
+    )
     coi_pen = 0.0
     bonuses_nullified = False
 
     if coi_detected:
-        coi_pen = COI_PENALTY
+        coi_pen = COI_PENALTY_OBVIOUS
         bonuses_nullified = True
 
-    # --- Compute raw and final ---
-    raw = base + sample_adj
+    # --- 6. Predatory journal check -> BLACK FLAG ---
+    predatory_match = _match_predatory(data.journal)
+    predatory_detected = predatory_match is not None
+
+    # --- 7. Compute raw and final ---
+    raw = base + sample_adj + large_bonus
+
     if bonuses_nullified:
+        # COI: apply penalty, zero out all bonuses
         raw = raw - coi_pen
     else:
-        raw = raw + inst_bonus + j_bonus
+        raw = raw + inst_bonus + j_bonus + reg_bonus
 
-    # Clamp to [1, cap] then [1, 10]
+    # Clamp to [1, cap]
     final = max(1.0, min(cap, raw))
     final = round(final, 1)
 
-    # --- Classify ---
-    category, category_label = _classify(final, coi_detected)
+    # If predatory, force to 1.0
+    if predatory_detected:
+        final = 1.0
+
+    # --- 8. Classify ---
+    category, category_label = _classify(final, predatory_detected)
 
     # --- Build breakdown ---
     breakdown = ScoringBreakdown(
@@ -418,14 +524,19 @@ def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisR
         pedro_score=pedro_score,
         pedro_answered=pedro_answered,
         sample_size_adjustment=sample_adj,
+        large_sample_bonus=large_bonus,
         elite_exception_applied=elite_exception,
         institutional_bonus=inst_bonus if not bonuses_nullified else 0.0,
         institutional_matches=inst_matches,
         journal_bonus=j_bonus if not bonuses_nullified else 0.0,
         journal_match=journal_match,
+        registered_protocol_bonus=reg_bonus if not bonuses_nullified else 0.0,
         coi_detected=coi_detected,
+        coi_severity=data.coi_severity,
         coi_penalty=coi_pen,
         bonuses_nullified=bonuses_nullified,
+        predatory_journal_detected=predatory_detected,
+        predatory_journal_match=predatory_match,
         raw_score=round(raw, 2),
         final_score=final,
         category=category,

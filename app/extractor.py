@@ -22,8 +22,14 @@ Pay special attention to:
 - Author affiliations and institutional backing
 - Funding sources and conflict-of-interest disclosures (often at the very end)
 - Whether a funder commercially sells the product being tested (critical for COI)
+- COI severity: mark "obvious" ONLY when the link between funder and product is \
+  explicit and undeniable (e.g. "Funded by RedBull" in a study testing RedBull). \
+  If the connection is indirect or unclear, mark "ambiguous". If no conflict, mark "none".
 - Population type: distinguish elite/professional athletes from recreational/students
 - For RCTs: evaluate every PEDro criterion carefully (C1-C11)
+- Whether the study was conducted in the field (real training/match) vs laboratory
+- Whether a control or comparison group was used
+- Whether the study protocol was pre-registered (ClinicalTrials.gov, PROSPERO, OSF, etc.)
 """
 
 EXTRACTION_PROMPT = """\
@@ -46,6 +52,7 @@ Return ONLY a JSON object matching this exact schema (use null for unknown field
   "conflict_of_interest_statement": "string or null — copy the COI statement verbatim if found",
   "product_tested": "string or null — the specific product/supplement/device being evaluated",
   "funder_sells_product": true_or_false_or_null,
+  "coi_severity": "one of: obvious, ambiguous, none — 'obvious' ONLY if funder explicitly and undeniably sells the tested product; 'ambiguous' if potential but unclear link; 'none' if no conflict",
   "pedro_criteria": {{
     "c1_eligibility_specified": true_or_false_or_null,
     "c2_random_allocation": true_or_false_or_null,
@@ -62,14 +69,21 @@ Return ONLY a JSON object matching this exact schema (use null for unknown field
   "statistical_methods": "string or null",
   "effect_size_reported": true_or_false_or_null,
   "confidence_intervals_reported": true_or_false_or_null,
+  "has_control_group": true_or_false_or_null,
+  "ecological_context": "one of: field, laboratory, mixed, unclear — 'field' = real training/match environment; 'laboratory' = controlled lab setting",
+  "registered_protocol": true_or_false_or_null,
   "main_findings_summary": "brief summary string or null",
   "extraction_notes": "string or null — note any difficulties or ambiguities"
 }}
 
 IMPORTANT:
 - pedro_criteria should ONLY be filled in if study_design is "rct". For non-RCT designs, set pedro_criteria to null.
-- funder_sells_product is the MOST CRITICAL field. Examine funding disclosures, COI statements, and author affiliations very carefully.
+- funder_sells_product is CRITICAL. Examine funding disclosures, COI statements, and author affiliations very carefully.
+- coi_severity: use "obvious" ONLY when the evidence is undeniable (e.g. company X funds study AND company X sells the exact product being tested). If it is merely suspicious or indirect, use "ambiguous". Do NOT inflate — false COI flags damage good research.
 - For population_type, "elite" means national team / Olympic / international level; "professional" means paid professional athletes; distinguish from "university_students" or "recreational".
+- ecological_context: "field" means data was collected during actual sport practice, training sessions, or competitive matches. "laboratory" means treadmill, isokinetic dynamometer, or other controlled lab settings.
+- registered_protocol: check if the paper mentions registration on ClinicalTrials.gov, PROSPERO, ISRCTN, OSF, UMIN, or similar registries.
+- has_control_group: true if there is any comparison/control/placebo group; false if pre-post only on the same group with no comparison.
 - Return ONLY the JSON object, no markdown formatting or extra text.
 
 --- PAPER TEXT ---
