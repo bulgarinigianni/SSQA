@@ -3,12 +3,10 @@
 Uses the OpenAI-compatible endpoint provided by Google AI Studio,
 so the SDK is openai (same interface, zero extra dependencies).
 
-Free tier limits (Gemini 2.0 Flash):
-  - 15 requests/minute
-  - 1,500 requests/day
-  - 1,000,000 tokens/day
-
-A semaphore limits concurrent calls to 3 to stay safe within those limits.
+Free tier rate limits are strict (as low as 5 RPM on some models), so we:
+  - Serialize concurrent calls via a semaphore
+  - Retry on 429 RateLimitError, honoring the API's retryDelay hint
+  - Fall back to exponential backoff if no hint is provided
 """
 
 from __future__ import annotations
@@ -16,16 +14,23 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
+import re
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, RateLimitError
 
 from .config import settings
 from .models import ExtractedData
 
 logger = logging.getLogger(__name__)
 
-# Gemini free tier: 15 RPM → cap concurrent extractions at 3
-_SEMAPHORE = asyncio.Semaphore(3)
+# Free tier can be as low as 5 RPM — keep concurrency low to avoid bursts
+_SEMAPHORE = asyncio.Semaphore(2)
+
+# 429 retry policy
+MAX_RETRIES = 6
+DEFAULT_RETRY_DELAY = 30.0  # seconds, used when the API gives no hint
+MAX_RETRY_DELAY = 90.0  # hard cap per attempt
 
 # Google AI Studio OpenAI-compatible base URL
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
@@ -109,10 +114,51 @@ IMPORTANT:
 """
 
 
+def _parse_retry_delay(exc: RateLimitError) -> float | None:
+    """Extract the retry delay (in seconds) from a Gemini 429 error body."""
+    msg = str(exc)
+    # Gemini wraps it as "Please retry in 29.18s." in the human message
+    m = re.search(r"retry in\s+([\d.]+)s", msg, re.IGNORECASE)
+    if m:
+        return float(m.group(1))
+    # Also try the structured RetryInfo field "retryDelay': '29s'"
+    m = re.search(r"retryDelay['\"]?\s*:\s*['\"]?(\d+)s", msg)
+    if m:
+        return float(m.group(1))
+    return None
+
+
+async def _chat_with_retry(client: AsyncOpenAI, **kwargs):
+    """Call chat.completions.create, retrying on 429 rate-limit errors."""
+    last_exc: RateLimitError | None = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            return await client.chat.completions.create(**kwargs)
+        except RateLimitError as exc:
+            last_exc = exc
+            if attempt == MAX_RETRIES:
+                break
+            hinted = _parse_retry_delay(exc)
+            if hinted is not None:
+                delay = hinted + 1.0  # small safety margin
+            else:
+                delay = DEFAULT_RETRY_DELAY * attempt  # 30, 60, 90...
+            delay = min(delay, MAX_RETRY_DELAY) + random.uniform(0, 2)
+            logger.warning(
+                "Gemini 429 on attempt %d/%d — sleeping %.1fs before retry",
+                attempt,
+                MAX_RETRIES,
+                delay,
+            )
+            await asyncio.sleep(delay)
+    assert last_exc is not None
+    raise last_exc
+
+
 def _truncate_text(text: str, max_chars: int = 800_000) -> str:
     """Truncate text to fit within model context while keeping start and end.
 
-    Gemini 2.0 Flash has a 1M token context (~4M chars), so we can be
+    Gemini 2.5 Flash has a 1M token context (~4M chars), so we can be
     very generous. Papers often have funding/COI info at the end.
     """
     if len(text) <= max_chars:
@@ -151,7 +197,8 @@ async def extract_paper_data(paper_text: str) -> ExtractedData:
     prompt = EXTRACTION_PROMPT.format(paper_text=truncated)
 
     async with _SEMAPHORE:
-        response = await client.chat.completions.create(
+        response = await _chat_with_retry(
+            client,
             model=settings.model_name,
             max_tokens=4096,
             messages=[
