@@ -47,8 +47,8 @@ async def serve_index():
 # ---------------------------------------------------------------------------
 @app.get("/api/health")
 async def health():
-    has_key = bool(settings.anthropic_api_key)
-    return {"status": "ok", "api_key_configured": has_key}
+    has_key = bool(settings.gemini_api_key)
+    return {"status": "ok", "api_key_configured": has_key, "model": settings.model_name}
 
 
 # ---------------------------------------------------------------------------
@@ -60,8 +60,8 @@ async def analyze_paper(file: UploadFile):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
 
-    if not settings.anthropic_api_key:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured on server.")
+    if not settings.gemini_api_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured on server.")
 
     # Save uploaded file
     file_id = uuid.uuid4().hex[:12]
@@ -120,8 +120,8 @@ async def analyze_batch(files: list[UploadFile]):
             detail=f"Maximum {settings.max_batch_size} files per batch.",
         )
 
-    if not settings.anthropic_api_key:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured on server.")
+    if not settings.gemini_api_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured on server.")
 
     # Save all files first
     saved: list[tuple[Path, str]] = []
@@ -189,8 +189,8 @@ async def analyze_text(body: dict):
     text = body.get("text", "")
     if not text:
         raise HTTPException(status_code=400, detail="No text provided.")
-    if not settings.anthropic_api_key:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured on server.")
+    if not settings.gemini_api_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not configured on server.")
 
     extracted = await extract_paper_data(text)
     return score_paper(extracted, filename="text_input")

@@ -1,16 +1,34 @@
-"""Use Claude to extract structured data from sport-science paper text."""
+"""Use Google Gemini to extract structured data from sport-science paper text.
+
+Uses the OpenAI-compatible endpoint provided by Google AI Studio,
+so the SDK is openai (same interface, zero extra dependencies).
+
+Free tier limits (Gemini 2.0 Flash):
+  - 15 requests/minute
+  - 1,500 requests/day
+  - 1,000,000 tokens/day
+
+A semaphore limits concurrent calls to 3 to stay safe within those limits.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
-import anthropic
+from openai import AsyncOpenAI
 
 from .config import settings
 from .models import ExtractedData
 
 logger = logging.getLogger(__name__)
+
+# Gemini free tier: 15 RPM → cap concurrent extractions at 3
+_SEMAPHORE = asyncio.Semaphore(3)
+
+# Google AI Studio OpenAI-compatible base URL
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 EXTRACTION_SYSTEM = """\
 You are an expert sport-science research methodologist. Your task is to extract \
@@ -91,10 +109,11 @@ IMPORTANT:
 """
 
 
-def _truncate_text(text: str, max_chars: int = 180_000) -> str:
+def _truncate_text(text: str, max_chars: int = 800_000) -> str:
     """Truncate text to fit within model context while keeping start and end.
 
-    Papers often have funding/COI info at the end, so we keep both ends.
+    Gemini 2.0 Flash has a 1M token context (~4M chars), so we can be
+    very generous. Papers often have funding/COI info at the end.
     """
     if len(text) <= max_chars:
         return text
@@ -109,30 +128,39 @@ def _truncate_text(text: str, max_chars: int = 180_000) -> str:
     )
 
 
-async def extract_paper_data(paper_text: str) -> ExtractedData:
-    """Send paper text to Claude and parse the structured extraction."""
-    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-
-    truncated = _truncate_text(paper_text)
-    prompt = EXTRACTION_PROMPT.format(paper_text=truncated)
-
-    message = await client.messages.create(
-        model=settings.model_name,
-        max_tokens=4096,
-        system=EXTRACTION_SYSTEM,
-        messages=[{"role": "user", "content": prompt}],
-    )
-
-    raw = message.content[0].text.strip()
-
-    # Strip markdown fences if present
+def _strip_fences(raw: str) -> str:
+    """Remove markdown code fences if the model wrapped its output."""
+    raw = raw.strip()
     if raw.startswith("```"):
         lines = raw.split("\n")
-        # Remove first and last fence lines
         lines = lines[1:] if lines[0].startswith("```") else lines
         if lines and lines[-1].strip() == "```":
             lines = lines[:-1]
         raw = "\n".join(lines)
+    return raw.strip()
+
+
+async def extract_paper_data(paper_text: str) -> ExtractedData:
+    """Send paper text to Gemini and parse the structured extraction."""
+    client = AsyncOpenAI(
+        api_key=settings.gemini_api_key,
+        base_url=GEMINI_BASE_URL,
+    )
+
+    truncated = _truncate_text(paper_text)
+    prompt = EXTRACTION_PROMPT.format(paper_text=truncated)
+
+    async with _SEMAPHORE:
+        response = await client.chat.completions.create(
+            model=settings.model_name,
+            max_tokens=4096,
+            messages=[
+                {"role": "system", "content": EXTRACTION_SYSTEM},
+                {"role": "user", "content": prompt},
+            ],
+        )
+
+    raw = _strip_fences(response.choices[0].message.content or "")
 
     try:
         data = json.loads(raw)
