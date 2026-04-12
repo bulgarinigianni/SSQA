@@ -55,6 +55,79 @@
         </div>
     </section>
 
+    <!-- Scoring Reference Panel — always visible -->
+    <section class="reference-panel">
+        <h2>Scoring Parameters Reference</h2>
+
+        <div class="ref-grid">
+
+            <!-- Study Design Caps -->
+            <div class="ref-card">
+                <h3>Study Design Caps</h3>
+                <table class="ref-table">
+                    <thead><tr><th>Design</th><th>Max Score</th></tr></thead>
+                    <tbody>
+                        <tr><td>Meta-Analysis</td><td>10</td></tr>
+                        <tr><td>Systematic Review</td><td>10</td></tr>
+                        <tr><td>RCT</td><td>10</td></tr>
+                        <tr><td>Consensus Statement</td><td>9</td></tr>
+                        <tr><td>Prospective Cohort</td><td>8</td></tr>
+                        <tr><td>Cross-Sectional</td><td>7</td></tr>
+                        <tr><td>Narrative Review / Expert Opinion</td><td>6</td></tr>
+                        <tr><td>Case Series</td><td>5.5</td></tr>
+                        <tr><td>Case Study</td><td>5</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Bonuses & Penalties -->
+            <div class="ref-card">
+                <h3>Bonuses &amp; Penalties</h3>
+                <table class="ref-table">
+                    <thead><tr><th>Modifier</th><th>Value</th><th>Condition</th></tr></thead>
+                    <tbody>
+                        <tr class="row-positive"><td>Elite Institution</td><td>+0.5</td><td>Aspetar, IOC, UEFA, top clubs, etc.</td></tr>
+                        <tr class="row-positive"><td>Elite Journal</td><td>+0.5</td><td>BJSM, MSSE, AJSM, Lancet, etc.</td></tr>
+                        <tr class="row-positive"><td>Large Sample</td><td>+0.4</td><td>N &gt; 500</td></tr>
+                        <tr class="row-positive"><td>Registered Protocol</td><td>+0.3</td><td>Pre-registered on ClinicalTrials.gov, PROSPERO, OSF</td></tr>
+                        <tr class="row-positive"><td>Good Sample</td><td>+0.3</td><td>N &ge; 50</td></tr>
+                        <tr class="row-negative"><td>COI Penalty</td><td>&minus;3.0</td><td>Obvious COI: funder sells tested product + all bonuses nullified</td></tr>
+                        <tr class="row-negative"><td>Small Sample</td><td>&minus;0.5 / &minus;1.0</td><td>N &lt; 20 / N &lt; 10 (waived for elite athletes)</td></tr>
+                        <tr class="row-flag"><td>Predatory Journal</td><td>BLACK FLAG</td><td>Score forced to 1.0 — evidence unreliable</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Quality Categories -->
+            <div class="ref-card">
+                <h3>Quality Categories</h3>
+                <table class="ref-table">
+                    <thead><tr><th>Category</th><th>Score Range</th></tr></thead>
+                    <tbody>
+                        <tr><td><span class="category-badge category-gold_standard">GOLD STANDARD</span></td><td>&ge; 8.5</td></tr>
+                        <tr><td><span class="category-badge category-practical_evidence">PRACTICAL EVIDENCE</span></td><td>7.0 &ndash; 8.4</td></tr>
+                        <tr><td><span class="category-badge category-exploratory">EXPLORATORY</span></td><td>5.0 &ndash; 6.9</td></tr>
+                        <tr><td><span class="category-badge category-weak">WEAK</span></td><td>&lt; 5.0</td></tr>
+                        <tr><td><span class="category-badge category-black_flag">BLACK FLAG</span></td><td>Predatory journal only</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Special Rules -->
+            <div class="ref-card">
+                <h3>Special Rules</h3>
+                <ul class="ref-rules">
+                    <li><strong>PEDro Scale (RCT only):</strong> Criteria C2-C11 scored out of 10. Base methodology score derived from PEDro ratio.</li>
+                    <li><strong>Elite Athlete Exception:</strong> Small sample penalty waived when population is elite/professional (e.g., N=15 national team players).</li>
+                    <li><strong>COI Filter:</strong> Applied only when COI is <em>obvious</em> (funder undeniably sells the product tested). Ambiguous COI is flagged but not penalized.</li>
+                    <li><strong>BLACK FLAG:</strong> Reserved exclusively for predatory journals. COI does not trigger BLACK FLAG.</li>
+                    <li><strong>Null-on-Unknown:</strong> If data cannot be reliably extracted from the paper, it is left null — never invented.</li>
+                </ul>
+            </div>
+
+        </div>
+    </section>
+
     <!-- Results Section -->
     <section class="results-section" id="resultsSection">
 

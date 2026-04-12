@@ -273,6 +273,100 @@ body {
     margin-top: 8px;
 }
 
+/* --- Scoring Reference Panel --- */
+.reference-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+}
+
+.reference-panel h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+.ref-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.ref-card {
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 16px;
+}
+
+.ref-card h3 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.ref-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.ref-table th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    padding: 4px 8px 6px;
+    border-bottom: 1px solid var(--border);
+}
+
+.ref-table td {
+    padding: 5px 8px;
+    vertical-align: middle;
+}
+
+.ref-table tbody tr:not(:last-child) td {
+    border-bottom: 1px solid var(--border);
+}
+
+.ref-table .row-positive td { color: var(--green); }
+.ref-table .row-positive td:last-child { color: var(--text-secondary); font-size: 11px; }
+.ref-table .row-negative td { color: var(--red); }
+.ref-table .row-negative td:last-child { color: var(--text-secondary); font-size: 11px; }
+.ref-table .row-flag td { color: var(--red); font-weight: 600; }
+.ref-table .row-flag td:last-child { color: var(--text-secondary); font-size: 11px; font-weight: 400; }
+
+.ref-rules {
+    list-style: none;
+    padding: 0;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+
+.ref-rules li {
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.ref-rules li:last-child { border-bottom: none; }
+
+.ref-rules strong {
+    color: var(--text);
+}
+
+@media (max-width: 768px) {
+    .ref-grid { grid-template-columns: 1fr; }
+    .reference-panel { padding: 20px 16px; }
+}
+
 /* --- Results Dashboard --- */
 .results-section {
     display: none;
