@@ -394,19 +394,6 @@
             </div>
 
             <div class="result-explanation">
-                <div class="explanation-stats">
-                    <span class="expl-stat">
-                        <span class="expl-label">Quality</span>
-                        <strong style="color:${normColor}">${s.normalized_score.toFixed(0)}%</strong>
-                        <span class="expl-detail">of max achievable for this design</span>
-                    </span>
-                    <span class="expl-sep">&middot;</span>
-                    <span class="expl-stat">
-                        <span class="expl-label">Confidence</span>
-                        <strong class="conf-${c.level}">${c.level.charAt(0).toUpperCase() + c.level.slice(1)}</strong>
-                        <span class="expl-detail">${c.extracted_fields}/${c.total_fields} fields extracted (${c.confidence_pct.toFixed(0)}%)</span>
-                    </span>
-                </div>
                 <strong>Assessment:</strong> ${escapeHtml(s.explanation)}
             </div>
         </div>`;
