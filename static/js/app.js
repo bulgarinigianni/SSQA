@@ -314,10 +314,15 @@
                         <circle class="score-ring-fill" cx="50" cy="50" r="42"
                             stroke="${normColor}"
                             stroke-dasharray="${circumference}"
-                            stroke-dashoffset="${offset}"/>
+                            stroke-dashoffset="${offset}"
+                            transform="rotate(-90, 50, 50)"/>
+                        <text x="50" y="46" text-anchor="middle" dominant-baseline="middle"
+                              font-family="JetBrains Mono,Fira Code,monospace" font-size="19" font-weight="700"
+                              fill="${normColor}">${s.normalized_score.toFixed(0)}%</text>
+                        <text x="50" y="64" text-anchor="middle" dominant-baseline="middle"
+                              font-family="JetBrains Mono,Fira Code,monospace" font-size="10" font-weight="500"
+                              fill="#9ca3af">${s.final_score.toFixed(1)} / ${s.design_cap}</text>
                     </svg>
-                    <div class="score-ring-text" style="color:${normColor}">${s.normalized_score.toFixed(0)}%</div>
-                    <div class="score-ring-sub">${s.final_score.toFixed(1)} / ${s.design_cap}</div>
                 </div>
                 <div class="result-meta">
                     <div class="result-title">${escapeHtml(e.title || r.filename)}</div>
@@ -389,6 +394,19 @@
             </div>
 
             <div class="result-explanation">
+                <div class="explanation-stats">
+                    <span class="expl-stat">
+                        <span class="expl-label">Quality</span>
+                        <strong style="color:${normColor}">${s.normalized_score.toFixed(0)}%</strong>
+                        <span class="expl-detail">of max achievable for this design</span>
+                    </span>
+                    <span class="expl-sep">&middot;</span>
+                    <span class="expl-stat">
+                        <span class="expl-label">Confidence</span>
+                        <strong class="conf-${c.level}">${c.level.charAt(0).toUpperCase() + c.level.slice(1)}</strong>
+                        <span class="expl-detail">${c.extracted_fields}/${c.total_fields} fields extracted (${c.confidence_pct.toFixed(0)}%)</span>
+                    </span>
+                </div>
                 <strong>Assessment:</strong> ${escapeHtml(s.explanation)}
             </div>
         </div>`;
