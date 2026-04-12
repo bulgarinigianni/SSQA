@@ -513,7 +513,10 @@ def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisR
     if predatory_detected:
         final = 1.0
 
-    # --- 8. Classify ---
+    # --- 8. Normalized score (percentage of cap) ---
+    normalized = round((final / cap) * 100, 1) if cap > 0 else 0.0
+
+    # --- 9. Classify ---
     category, category_label = _classify(final, predatory_detected)
 
     # --- Build breakdown ---
@@ -539,6 +542,7 @@ def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisR
         predatory_journal_match=predatory_match,
         raw_score=round(raw, 2),
         final_score=final,
+        normalized_score=normalized,
         category=category,
         category_label=category_label,
         explanation="",

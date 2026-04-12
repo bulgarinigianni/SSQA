@@ -196,9 +196,11 @@
             const e = r.extracted;
             const scoreColor = getScoreColor(s.final_score, s.category);
             const coiFlag = s.coi_detected ? '<span style="color:var(--red);font-weight:600">COI</span>' : s.predatory_journal_detected ? '<span style="color:var(--red);font-weight:600">PRED</span>' : '<span style="color:var(--green)">OK</span>';
+            const normColor = getNormColor(s.normalized_score);
             return `<tr>
                 <td class="filename-cell" title="${escapeHtml(r.filename)}">${escapeHtml(r.filename)}</td>
-                <td class="score-cell" style="color:${scoreColor}">${s.final_score.toFixed(1)}</td>
+                <td class="score-cell" style="color:${scoreColor}">${s.final_score.toFixed(1)}<span class="score-cap">/${s.design_cap}</span></td>
+                <td class="norm-cell" style="color:${normColor}">${s.normalized_score.toFixed(0)}%</td>
                 <td><span class="category-badge category-${s.category}">${s.category_label}</span></td>
                 <td>${escapeHtml(e.study_design ? designLabel(e.study_design) : "—")}</td>
                 <td>${e.sample_size != null ? e.sample_size : "—"}</td>
@@ -215,6 +217,7 @@
                     <tr>
                         <th>File</th>
                         <th>Score</th>
+                        <th>Quality %</th>
                         <th>Category</th>
                         <th>Design</th>
                         <th>N</th>
@@ -258,8 +261,9 @@
         }
 
         const scoreColor = getScoreColor(s.final_score, s.category);
+        const normColor = getNormColor(s.normalized_score);
         const circumference = 2 * Math.PI * 42;
-        const offset = circumference - (s.final_score / 10) * circumference;
+        const offset = circumference - (s.normalized_score / 100) * circumference;
 
         // PEDro HTML
         let pedroHtml = "";
@@ -308,11 +312,12 @@
                     <svg viewBox="0 0 100 100">
                         <circle class="score-ring-bg" cx="50" cy="50" r="42"/>
                         <circle class="score-ring-fill" cx="50" cy="50" r="42"
-                            stroke="${scoreColor}"
+                            stroke="${normColor}"
                             stroke-dasharray="${circumference}"
                             stroke-dashoffset="${offset}"/>
                     </svg>
-                    <div class="score-ring-text" style="color:${scoreColor}">${s.final_score.toFixed(1)}</div>
+                    <div class="score-ring-text" style="color:${normColor}">${s.normalized_score.toFixed(0)}%</div>
+                    <div class="score-ring-sub">${s.final_score.toFixed(1)} / ${s.design_cap}</div>
                 </div>
                 <div class="result-meta">
                     <div class="result-title">${escapeHtml(e.title || r.filename)}</div>
@@ -350,6 +355,8 @@
                     <div class="detail-row"><span class="label">Journal Bonus</span><span class="value ${s.journal_bonus > 0 ? "value-positive" : "value-neutral"}">${s.bonuses_nullified ? "Nullified (COI)" : (s.journal_bonus > 0 ? "+" + s.journal_bonus.toFixed(1) : "0.0")}</span></div>
                     ${s.coi_detected ? `<div class="detail-row"><span class="label">COI Penalty (${escapeHtml(s.coi_severity || "obvious")})</span><span class="value value-negative">-${s.coi_penalty.toFixed(1)}</span></div>` : ""}
                     ${s.predatory_journal_detected ? `<div class="detail-row"><span class="label">Predatory Journal</span><span class="value value-negative">BLACK FLAG</span></div>` : ""}
+                    <div class="detail-row detail-row-final"><span class="label">Final Score</span><span class="value" style="font-weight:700">${s.final_score.toFixed(1)} / ${s.design_cap}</span></div>
+                    <div class="detail-row detail-row-final"><span class="label">Relative Quality</span><span class="value" style="font-weight:700;color:${normColor}">${s.normalized_score.toFixed(0)}%</span></div>
                 </div>
 
                 <!-- COI & Funding -->
@@ -394,6 +401,14 @@
         if (score >= 7.0) return "var(--green)";
         if (score >= 5.0) return "var(--yellow)";
         if (score >= 3.0) return "var(--orange)";
+        return "var(--red)";
+    }
+
+    function getNormColor(pct) {
+        if (pct >= 85) return "var(--accent)";
+        if (pct >= 70) return "var(--green)";
+        if (pct >= 50) return "var(--yellow)";
+        if (pct >= 30) return "var(--orange)";
         return "var(--red)";
     }
 

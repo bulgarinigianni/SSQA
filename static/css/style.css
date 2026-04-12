@@ -420,11 +420,23 @@ body {
 
 .score-ring-text {
     position: absolute;
-    top: 50%;
+    top: 44%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 700;
+    font-family: var(--mono);
+}
+
+.score-ring-sub {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    white-space: nowrap;
     font-family: var(--mono);
 }
 
@@ -614,6 +626,25 @@ body {
     font-family: var(--mono);
     font-weight: 700;
     font-size: 16px;
+    white-space: nowrap;
+}
+
+.batch-table .score-cap {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.batch-table .norm-cell {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.detail-row-final {
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+    padding-top: 8px !important;
 }
 
 .batch-table .filename-cell {

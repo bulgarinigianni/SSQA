@@ -142,6 +142,11 @@ class ScoringBreakdown(BaseModel):
     predatory_journal_match: str | None = None
     raw_score: float
     final_score: float
+    normalized_score: float = Field(
+        0.0,
+        description="Final score as percentage of design cap (0-100). "
+        "Allows fair comparison across study designs.",
+    )
     category: str
     category_label: str
     explanation: str
