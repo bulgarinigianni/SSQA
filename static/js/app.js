@@ -270,23 +270,23 @@
         if (e.pedro_criteria && e.study_design === "rct") {
             const pc = e.pedro_criteria;
             const cells = [
-                { key: "C1", val: pc.c1_eligibility_specified, desc: true },
-                { key: "C2", val: pc.c2_random_allocation },
-                { key: "C3", val: pc.c3_concealed_allocation },
-                { key: "C4", val: pc.c4_baseline_comparable },
-                { key: "C5", val: pc.c5_blinding_subjects },
-                { key: "C6", val: pc.c6_blinding_therapists },
-                { key: "C7", val: pc.c7_blinding_assessors },
-                { key: "C8", val: pc.c8_adequate_followup },
-                { key: "C9", val: pc.c9_intention_to_treat },
-                { key: "C10", val: pc.c10_between_group },
-                { key: "C11", val: pc.c11_point_variability },
+                { key: "C1", label: "Eligibility Specified", val: pc.c1_eligibility_specified, desc: true },
+                { key: "C2", label: "Random Allocation", val: pc.c2_random_allocation },
+                { key: "C3", label: "Concealed Allocation", val: pc.c3_concealed_allocation },
+                { key: "C4", label: "Baseline Comparable", val: pc.c4_baseline_comparable },
+                { key: "C5", label: "Blinding Subjects", val: pc.c5_blinding_subjects },
+                { key: "C6", label: "Blinding Therapists", val: pc.c6_blinding_therapists },
+                { key: "C7", label: "Blinding Assessors", val: pc.c7_blinding_assessors },
+                { key: "C8", label: "Adequate Follow-up", val: pc.c8_adequate_followup },
+                { key: "C9", label: "Intention to Treat", val: pc.c9_intention_to_treat },
+                { key: "C10", label: "Between-Group Stats", val: pc.c10_between_group },
+                { key: "C11", label: "Point & Variability", val: pc.c11_point_variability },
             ];
             const cellsHtml = cells.map(c => {
                 let cls = "unknown";
                 if (c.desc) cls = c.val === true ? "descriptive" : c.val === false ? "not-met" : "unknown";
                 else cls = c.val === true ? "met" : c.val === false ? "not-met" : "unknown";
-                return `<div class="pedro-cell ${cls}" title="${c.key}">${c.key}</div>`;
+                return `<div class="pedro-item"><div class="pedro-cell ${cls}" title="${c.label}">${c.key}</div><div class="pedro-label">${c.label}</div></div>`;
             }).join("");
 
             pedroHtml = `
