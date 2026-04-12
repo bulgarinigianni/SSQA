@@ -390,7 +390,7 @@
     // --- Helpers ---
     function getScoreColor(score, category) {
         if (category === "black_flag" || category === "error") return "var(--red)";
-        if (score >= 8.5) return "var(--gold)";
+        if (score >= 8.5) return "var(--accent)";
         if (score >= 7.0) return "var(--green)";
         if (score >= 5.0) return "var(--yellow)";
         if (score >= 3.0) return "var(--orange)";

@@ -456,7 +456,7 @@ body {
     letter-spacing: 0.5px;
 }
 
-.category-gold_standard { background: var(--gold-bg); color: var(--gold); border: 1px solid #fde68a; }
+.category-gold_standard { background: #eff6ff; color: var(--accent); border: 1px solid #93c5fd; }
 .category-practical_evidence { background: var(--green-bg); color: var(--green); border: 1px solid #a7f3d0; }
 .category-exploratory { background: var(--yellow-bg); color: var(--yellow); border: 1px solid #fde047; }
 .category-weak { background: var(--orange-bg); color: var(--orange); border: 1px solid #fdba74; }
