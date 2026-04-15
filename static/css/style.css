@@ -20,6 +20,22 @@
     --orange-bg: #fff7ed;
     --red: #dc2626;
     --red-bg: #fef2f2;
+    /* Category medal palette */
+    --medal-gold: #ca8a04;
+    --medal-gold-bg: #fef9c3;
+    --medal-gold-border: #facc15;
+    --medal-silver: #475569;
+    --medal-silver-bg: #f1f5f9;
+    --medal-silver-border: #94a3b8;
+    --medal-bronze: #9a3412;
+    --medal-bronze-bg: #ffedd5;
+    --medal-bronze-border: #fb923c;
+    --cat-blue: #2563eb;
+    --cat-blue-bg: #dbeafe;
+    --cat-blue-border: #60a5fa;
+    --cat-black: #111827;
+    --cat-black-bg: #e5e7eb;
+    --cat-black-border: #6b7280;
     --radius: 8px;
     --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
     --shadow-lg: 0 4px 12px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
@@ -340,7 +356,7 @@ body {
 .ref-table .row-positive td:last-child { color: var(--text-secondary); font-size: 11px; }
 .ref-table .row-negative td { color: var(--red); }
 .ref-table .row-negative td:last-child { color: var(--text-secondary); font-size: 11px; }
-.ref-table .row-flag td { color: var(--red); font-weight: 600; }
+.ref-table .row-flag td { color: var(--cat-black); font-weight: 600; }
 .ref-table .row-flag td:last-child { color: var(--text-secondary); font-size: 11px; font-weight: 400; }
 
 .ref-rules {
@@ -445,11 +461,11 @@ body {
     letter-spacing: 0.5px;
 }
 
-.category-gold_standard { background: #eff6ff; color: var(--accent); border: 1px solid #93c5fd; }
-.category-practical_evidence { background: var(--green-bg); color: var(--green); border: 1px solid #a7f3d0; }
-.category-exploratory { background: var(--yellow-bg); color: var(--yellow); border: 1px solid #fde047; }
-.category-weak { background: var(--orange-bg); color: var(--orange); border: 1px solid #fdba74; }
-.category-black_flag { background: var(--red-bg); color: var(--red); border: 1px solid #fca5a5; }
+.category-gold_standard { background: var(--medal-gold-bg); color: var(--medal-gold); border: 1px solid var(--medal-gold-border); }
+.category-practical_evidence { background: var(--medal-silver-bg); color: var(--medal-silver); border: 1px solid var(--medal-silver-border); }
+.category-exploratory { background: var(--medal-bronze-bg); color: var(--medal-bronze); border: 1px solid var(--medal-bronze-border); }
+.category-weak { background: var(--cat-blue-bg); color: var(--cat-blue); border: 1px solid var(--cat-blue-border); }
+.category-black_flag { background: var(--cat-black-bg); color: var(--cat-black); border: 1px solid var(--cat-black-border); }
 .category-error { background: var(--red-bg); color: var(--red); border: 1px solid #fca5a5; }
 
 /* -- Details Grid -- */

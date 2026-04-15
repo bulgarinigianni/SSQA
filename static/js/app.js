@@ -400,21 +400,23 @@
     }
 
     // --- Helpers ---
+    // Category-based score color (batch table "Score" column, absolute score)
     function getScoreColor(score, category) {
-        if (category === "black_flag" || category === "error") return "var(--red)";
-        if (score >= 8.5) return "var(--accent)";
-        if (score >= 7.0) return "var(--green)";
-        if (score >= 5.0) return "var(--yellow)";
-        if (score >= 3.0) return "var(--orange)";
-        return "var(--red)";
+        if (category === "black_flag") return "var(--cat-black)";
+        if (category === "error") return "var(--red)";
+        if (score >= 8.5) return "var(--medal-gold)";
+        if (score >= 7.0) return "var(--medal-silver)";
+        if (score >= 5.0) return "var(--medal-bronze)";
+        return "var(--cat-blue)";
     }
 
+    // Quality-tier color (score ring and batch Quality% column, normalized)
     function getNormColor(pct) {
-        if (pct >= 85) return "var(--accent)";
-        if (pct >= 70) return "var(--green)";
-        if (pct >= 50) return "var(--yellow)";
-        if (pct >= 30) return "var(--orange)";
-        return "var(--red)";
+        if (pct >= 85) return "var(--medal-gold)";
+        if (pct >= 70) return "var(--medal-silver)";
+        if (pct >= 50) return "var(--medal-bronze)";
+        if (pct >= 30) return "var(--cat-blue)";
+        return "var(--cat-black)";
     }
 
     const DESIGN_LABELS = {
