@@ -27,10 +27,11 @@ logger = logging.getLogger(__name__)
 # Free tier can be as low as 5 RPM — keep concurrency low to avoid bursts
 _SEMAPHORE = asyncio.Semaphore(2)
 
-# 429 retry policy
-MAX_RETRIES = 6
-DEFAULT_RETRY_DELAY = 30.0  # seconds, used when the API gives no hint
-MAX_RETRY_DELAY = 90.0  # hard cap per attempt
+# 429 retry policy — tuned to fail visibly within ~90s worst case,
+# rather than hanging for many minutes on persistent quota exhaustion
+MAX_RETRIES = 3
+DEFAULT_RETRY_DELAY = 20.0  # seconds, used when the API gives no hint
+MAX_RETRY_DELAY = 35.0  # hard cap per attempt
 
 # Google AI Studio OpenAI-compatible base URL
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"

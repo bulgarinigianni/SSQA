@@ -122,26 +122,46 @@
     async function runAnalysis() {
         if (selectedFiles.length === 0) return;
 
+        const isBatch = selectedFiles.length > 1;
+        const n = selectedFiles.length;
+
         analyzeBtn.disabled = true;
         progressBar.classList.add("active");
         progressFill.classList.remove("determinate");
-        progressText.textContent = `Analyzing ${selectedFiles.length} paper${selectedFiles.length > 1 ? "s" : ""}... This may take a minute.`;
         resultsSection.classList.remove("active");
 
-        const formData = new FormData();
-        const isBatch = selectedFiles.length > 1;
+        // Show elapsed time so the user knows the app isn't frozen
+        const startedAt = Date.now();
+        const baseMsg = `Analyzing ${n} paper${n > 1 ? "s" : ""}...`;
+        const hintMsg = isBatch
+            ? "Rate limits may cause batch delays up to ~2 minutes."
+            : "Usually takes 10-30 seconds.";
+        progressText.textContent = `${baseMsg} ${hintMsg} (0s)`;
+        const tick = setInterval(() => {
+            const s = Math.floor((Date.now() - startedAt) / 1000);
+            progressText.textContent = `${baseMsg} ${hintMsg} (${s}s)`;
+        }, 1000);
 
+        // Abort the request after a hard client-side timeout so the UI never
+        // feels "infinite". 3 min for single, 4 min for batch.
+        const controller = new AbortController();
+        const timeoutMs = isBatch ? 240000 : 180000;
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+        const formData = new FormData();
         if (isBatch) {
-            for (const f of selectedFiles) {
-                formData.append("files", f);
-            }
+            for (const f of selectedFiles) formData.append("files", f);
         } else {
             formData.append("file", selectedFiles[0]);
         }
 
         try {
             const endpoint = isBatch ? "/api/analyze/batch" : "/api/analyze";
-            const res = await fetch(endpoint, { method: "POST", body: formData });
+            const res = await fetch(endpoint, {
+                method: "POST",
+                body: formData,
+                signal: controller.signal,
+            });
 
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ detail: "Unknown error" }));
@@ -155,8 +175,14 @@
             resultsSection.classList.add("active");
             resultsSection.scrollIntoView({ behavior: "smooth" });
         } catch (err) {
-            showToast(err.message);
+            if (err.name === "AbortError") {
+                showToast(`Request timed out after ${timeoutMs / 1000}s. The Gemini API may be rate-limited or unreachable. Try again in a minute or check your API quota.`);
+            } else {
+                showToast(err.message);
+            }
         } finally {
+            clearTimeout(timer);
+            clearInterval(tick);
             progressBar.classList.remove("active");
             analyzeBtn.disabled = false;
         }
