@@ -22,34 +22,95 @@
     const statusDot = document.getElementById("statusDot");
     const statusText = document.getElementById("statusText");
     const toast = document.getElementById("toast");
+    const apiKeyInput = document.getElementById("apiKeyInput");
+    const apiKeySaveBtn = document.getElementById("apiKeySaveBtn");
+    const apiKeyClearBtn = document.getElementById("apiKeyClearBtn");
+    const apiKeyState = document.getElementById("apiKeyState");
 
     let selectedFiles = [];
     let analysisResults = [];
+
+    // --- API Key management (localStorage) ---
+    const API_KEY_STORAGE = "ssqa_gemini_api_key";
+    let serverHasKey = false;
+
+    function getStoredKey() {
+        return localStorage.getItem(API_KEY_STORAGE) || "";
+    }
+
+    function renderKeyState() {
+        const stored = getStoredKey();
+        if (stored) {
+            apiKeyState.textContent = "Personal key active";
+            apiKeyState.className = "api-key-state state-personal";
+        } else if (serverHasKey) {
+            apiKeyState.textContent = "Using shared server key";
+            apiKeyState.className = "api-key-state state-shared";
+        } else {
+            apiKeyState.textContent = "No key configured";
+            apiKeyState.className = "api-key-state state-none";
+        }
+    }
+
+    function updateStatusDot() {
+        const hasAnyKey = serverHasKey || !!getStoredKey();
+        if (hasAnyKey) {
+            statusDot.classList.remove("offline");
+            statusText.textContent = getStoredKey() ? "Your key" : "AI Ready";
+        } else {
+            statusDot.classList.add("offline");
+            statusText.textContent = "No key";
+        }
+    }
+
+    // Pre-fill from localStorage on boot
+    const existing = getStoredKey();
+    if (existing) apiKeyInput.value = existing;
+
+    apiKeySaveBtn.addEventListener("click", () => {
+        const v = apiKeyInput.value.trim();
+        if (!v) {
+            showToast("Paste a Gemini API key before saving.");
+            return;
+        }
+        localStorage.setItem(API_KEY_STORAGE, v);
+        renderKeyState();
+        updateStatusDot();
+        showToast("API key saved to your browser.", "success");
+    });
+
+    apiKeyClearBtn.addEventListener("click", () => {
+        localStorage.removeItem(API_KEY_STORAGE);
+        apiKeyInput.value = "";
+        renderKeyState();
+        updateStatusDot();
+        showToast("API key cleared. Falling back to server key.", "success");
+    });
 
     // --- Health check ---
     async function checkHealth() {
         try {
             const res = await fetch("/api/health");
             const data = await res.json();
-            if (data.api_key_configured) {
-                statusDot.classList.remove("offline");
-                statusText.textContent = "AI Ready";
-            } else {
-                statusDot.classList.add("offline");
-                statusText.textContent = "API Key Missing";
-            }
+            serverHasKey = !!data.api_key_configured;
         } catch {
+            serverHasKey = false;
             statusDot.classList.add("offline");
             statusText.textContent = "Offline";
+            return;
         }
+        updateStatusDot();
+        renderKeyState();
     }
     checkHealth();
 
     // --- Toast ---
-    function showToast(msg, type = "error") {
+    function showToast(msg, type = "error", duration = 4000) {
         toast.textContent = msg;
         toast.className = `toast toast-${type} show`;
-        setTimeout(() => toast.classList.remove("show"), 4000);
+        if (duration > 0) {
+            setTimeout(() => toast.classList.remove("show"), duration);
+        }
     }
 
     // --- File handling ---
@@ -157,15 +218,31 @@
 
         try {
             const endpoint = isBatch ? "/api/analyze/batch" : "/api/analyze";
+            const headers = {};
+            const personalKey = getStoredKey();
+            if (personalKey) headers["X-Gemini-API-Key"] = personalKey;
+
             const res = await fetch(endpoint, {
                 method: "POST",
                 body: formData,
+                headers,
                 signal: controller.signal,
             });
 
             if (!res.ok) {
-                const err = await res.json().catch(() => ({ detail: "Unknown error" }));
-                throw new Error(err.detail || `HTTP ${res.status}`);
+                const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+                const detail = err.detail || `HTTP ${res.status}`;
+
+                // Dedicated surfaces for user-recoverable errors
+                if (res.status === 429) {
+                    showToast(detail, "error", 14000);
+                    return;
+                }
+                if (res.status === 401) {
+                    showToast(detail, "error", 10000);
+                    return;
+                }
+                throw new Error(detail);
             }
 
             const data = await res.json();
@@ -176,7 +253,7 @@
             resultsSection.scrollIntoView({ behavior: "smooth" });
         } catch (err) {
             if (err.name === "AbortError") {
-                showToast(`Request timed out after ${timeoutMs / 1000}s. The Gemini API may be rate-limited or unreachable. Try again in a minute or check your API quota.`);
+                showToast(`Request timed out after ${timeoutMs / 1000}s. The Gemini API may be rate-limited or unreachable. Try again in a minute, or paste a personal API key above to use your own quota.`, "error", 10000);
             } else {
                 showToast(err.message);
             }

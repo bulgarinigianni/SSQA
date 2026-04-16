@@ -119,6 +119,107 @@ body {
     padding: 32px;
 }
 
+/* --- API Key Section --- */
+.api-key-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+}
+
+.api-key-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.api-key-header h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.api-key-header p {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+    max-width: 640px;
+}
+
+.api-key-link {
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.api-key-link:hover { text-decoration: underline; }
+
+.api-key-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.api-key-row input[type="password"] {
+    flex: 1;
+    min-width: 220px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text);
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.api-key-row input[type="password"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--surface);
+}
+
+.btn-small {
+    padding: 8px 14px;
+    font-size: 13px;
+}
+
+.api-key-state {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 12px;
+    margin-left: 4px;
+}
+
+.api-key-state.state-personal {
+    background: var(--green-bg);
+    color: var(--green);
+}
+
+.api-key-state.state-shared {
+    background: #f0f5ff;
+    color: var(--accent);
+}
+
+.api-key-state.state-none {
+    background: var(--red-bg);
+    color: var(--red);
+}
+
+@media (max-width: 640px) {
+    .api-key-header { flex-direction: column; gap: 4px; }
+    .api-key-row input[type="password"] { width: 100%; }
+}
+
 /* --- Upload Zone --- */
 .upload-section {
     background: var(--surface);
@@ -730,13 +831,15 @@ body {
     position: fixed;
     bottom: 24px;
     right: 24px;
-    padding: 12px 20px;
+    max-width: 440px;
+    padding: 14px 20px;
     border-radius: 8px;
     font-size: 13px;
+    line-height: 1.5;
     color: white;
     box-shadow: var(--shadow-lg);
     z-index: 1000;
-    transform: translateY(120%);
+    transform: translateY(200%);
     transition: transform 0.3s ease;
 }
 

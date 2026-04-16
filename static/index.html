@@ -23,6 +23,23 @@
 
 <main class="container">
 
+    <!-- API Key Bar -->
+    <section class="api-key-section">
+        <div class="api-key-header">
+            <div>
+                <h2>Your Gemini API Key</h2>
+                <p>Optional — bring your own key so every request uses your personal quota. Stored only in your browser (localStorage), never sent to our servers except as a transparent proxy to Google.</p>
+            </div>
+            <a class="api-key-link" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a free key &rarr;</a>
+        </div>
+        <div class="api-key-row">
+            <input type="password" id="apiKeyInput" placeholder="Paste your Gemini API key here (optional)" autocomplete="off" spellcheck="false">
+            <button class="btn btn-primary btn-small" id="apiKeySaveBtn">Save</button>
+            <button class="btn btn-secondary btn-small" id="apiKeyClearBtn">Clear</button>
+            <span class="api-key-state" id="apiKeyState"></span>
+        </div>
+    </section>
+
     <!-- Upload Section -->
     <section class="upload-section">
         <h2>Upload Research Papers</h2>

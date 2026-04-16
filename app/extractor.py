@@ -17,12 +17,20 @@ import logging
 import random
 import re
 
-from openai import AsyncOpenAI, RateLimitError
+from openai import AsyncOpenAI, AuthenticationError, RateLimitError
 
 from .config import settings
 from .models import ExtractedData
 
 logger = logging.getLogger(__name__)
+
+
+class QuotaExhaustedError(Exception):
+    """Raised when Gemini returns 429 that isn't going to resolve with retries.
+
+    Covers both permanent "limit: 0" quota allocation errors and the case where
+    retries are exhausted without success.
+    """
 
 # Free tier can be as low as 5 RPM — keep concurrency low to avoid bursts
 _SEMAPHORE = asyncio.Semaphore(2)
@@ -129,6 +137,16 @@ def _parse_retry_delay(exc: RateLimitError) -> float | None:
     return None
 
 
+def _is_permanent_quota_error(exc: RateLimitError) -> bool:
+    """Detect 429s that won't resolve by retrying (no free-tier allocation, daily limit)."""
+    msg = str(exc).lower()
+    if "limit: 0" in msg:
+        return True
+    if "per day" in msg or "daily" in msg:
+        return True
+    return False
+
+
 async def _chat_with_retry(client: AsyncOpenAI, **kwargs):
     """Call chat.completions.create, retrying on 429 rate-limit errors."""
     last_exc: RateLimitError | None = None
@@ -137,13 +155,20 @@ async def _chat_with_retry(client: AsyncOpenAI, **kwargs):
             return await client.chat.completions.create(**kwargs)
         except RateLimitError as exc:
             last_exc = exc
+            # Fail fast on non-retryable quota errors
+            if _is_permanent_quota_error(exc):
+                logger.warning("Gemini quota permanently exhausted: %s", exc)
+                raise QuotaExhaustedError(
+                    "Gemini API quota is permanently exhausted for this key "
+                    "(daily limit or zero free-tier allocation)."
+                ) from exc
             if attempt == MAX_RETRIES:
                 break
             hinted = _parse_retry_delay(exc)
             if hinted is not None:
                 delay = hinted + 1.0  # small safety margin
             else:
-                delay = DEFAULT_RETRY_DELAY * attempt  # 30, 60, 90...
+                delay = DEFAULT_RETRY_DELAY * attempt  # 20, 40, 60...
             delay = min(delay, MAX_RETRY_DELAY) + random.uniform(0, 2)
             logger.warning(
                 "Gemini 429 on attempt %d/%d — sleeping %.1fs before retry",
@@ -153,7 +178,9 @@ async def _chat_with_retry(client: AsyncOpenAI, **kwargs):
             )
             await asyncio.sleep(delay)
     assert last_exc is not None
-    raise last_exc
+    raise QuotaExhaustedError(
+        "Gemini API rate limit persists after retries. Quota likely exhausted."
+    ) from last_exc
 
 
 def _truncate_text(text: str, max_chars: int = 800_000) -> str:
@@ -187,10 +214,21 @@ def _strip_fences(raw: str) -> str:
     return raw.strip()
 
 
-async def extract_paper_data(paper_text: str) -> ExtractedData:
-    """Send paper text to Gemini and parse the structured extraction."""
+async def extract_paper_data(
+    paper_text: str,
+    api_key: str | None = None,
+) -> ExtractedData:
+    """Send paper text to Gemini and parse the structured extraction.
+
+    If ``api_key`` is provided, it overrides the server-configured
+    ``settings.gemini_api_key``. This enables each end-user to bring their
+    own key so quota is scoped to the caller.
+    """
+    key = api_key or settings.gemini_api_key
+    if not key:
+        raise ValueError("No Gemini API key available (neither user-provided nor server-configured).")
     client = AsyncOpenAI(
-        api_key=settings.gemini_api_key,
+        api_key=key,
         base_url=GEMINI_BASE_URL,
     )
 
