@@ -1,11 +1,15 @@
 """Use Google Gemini to extract structured data from sport-science paper text.
 
-Uses the OpenAI-compatible endpoint provided by Google AI Studio,
-so the SDK is openai (same interface, zero extra dependencies).
+We call Gemini's **native REST API** directly via httpx. Previously we used
+the OpenAI-compatible endpoint through the openai SDK, but that layer
+occasionally triggered Google's "Multiple authentication credentials
+received" 400 error when the environment had overlapping auth env vars
+(OPENAI_API_KEY / GOOGLE_API_KEY / GEMINI_API_KEY). Going direct lets us
+send exactly one credential (x-goog-api-key) and nothing else.
 
-Free tier rate limits are strict (as low as 5 RPM on some models), so we:
+Free-tier rate limits are strict (as low as 5 RPM on some models), so we:
   - Serialize concurrent calls via a semaphore
-  - Retry on 429 RateLimitError, honoring the API's retryDelay hint
+  - Retry on 429, honoring the API's retryDelay hint
   - Fall back to exponential backoff if no hint is provided
 """
 
@@ -17,7 +21,7 @@ import logging
 import random
 import re
 
-from openai import AsyncOpenAI, AuthenticationError, RateLimitError
+import httpx
 
 from .config import settings
 from .models import ExtractedData
@@ -32,6 +36,19 @@ class QuotaExhaustedError(Exception):
     retries are exhausted without success.
     """
 
+
+class InvalidAPIKeyError(Exception):
+    """Raised when the Gemini API key is missing/invalid/expired."""
+
+
+class _GeminiRateLimited(Exception):
+    """Internal signal carrying the parsed 429 body so the retry loop can inspect it."""
+
+    def __init__(self, body: dict):
+        self.body = body or {}
+        super().__init__(self.body.get("error", {}).get("message", "Rate limited"))
+
+
 # Free tier can be as low as 5 RPM — keep concurrency low to avoid bursts
 _SEMAPHORE = asyncio.Semaphore(2)
 
@@ -41,8 +58,11 @@ MAX_RETRIES = 3
 DEFAULT_RETRY_DELAY = 20.0  # seconds, used when the API gives no hint
 MAX_RETRY_DELAY = 35.0  # hard cap per attempt
 
-# Google AI Studio OpenAI-compatible base URL
-GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+# Native Gemini REST API base
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+
+# Per-request HTTP timeout. Paper extraction usually takes 5-30s; give generous slack.
+HTTP_TIMEOUT = 90.0
 
 EXTRACTION_SYSTEM = """\
 You are an expert sport-science research methodologist. Your task is to extract \
@@ -123,23 +143,30 @@ IMPORTANT:
 """
 
 
-def _parse_retry_delay(exc: RateLimitError) -> float | None:
-    """Extract the retry delay (in seconds) from a Gemini 429 error body."""
-    msg = str(exc)
-    # Gemini wraps it as "Please retry in 29.18s." in the human message
-    m = re.search(r"retry in\s+([\d.]+)s", msg, re.IGNORECASE)
-    if m:
-        return float(m.group(1))
-    # Also try the structured RetryInfo field "retryDelay': '29s'"
-    m = re.search(r"retryDelay['\"]?\s*:\s*['\"]?(\d+)s", msg)
-    if m:
-        return float(m.group(1))
+def _parse_retry_delay(body: dict) -> float | None:
+    """Extract the retry delay (seconds) from a Gemini 429 error body."""
+    try:
+        msg = body.get("error", {}).get("message", "") or ""
+        m = re.search(r"retry in\s+([\d.]+)s", msg, re.IGNORECASE)
+        if m:
+            return float(m.group(1))
+        for detail in body.get("error", {}).get("details", []) or []:
+            rd = detail.get("retryDelay")
+            if rd:
+                m = re.match(r"([\d.]+)s", str(rd))
+                if m:
+                    return float(m.group(1))
+    except (AttributeError, TypeError):
+        pass
     return None
 
 
-def _is_permanent_quota_error(exc: RateLimitError) -> bool:
+def _is_permanent_quota_error(body: dict) -> bool:
     """Detect 429s that won't resolve by retrying (no free-tier allocation, daily limit)."""
-    msg = str(exc).lower()
+    try:
+        msg = (body.get("error", {}).get("message", "") or "").lower()
+    except AttributeError:
+        return False
     if "limit: 0" in msg:
         return True
     if "per day" in msg or "daily" in msg:
@@ -147,16 +174,77 @@ def _is_permanent_quota_error(exc: RateLimitError) -> bool:
     return False
 
 
-async def _chat_with_retry(client: AsyncOpenAI, **kwargs):
-    """Call chat.completions.create, retrying on 429 rate-limit errors."""
-    last_exc: RateLimitError | None = None
+def _extract_error_message(body: dict, status: int, fallback: str) -> str:
+    try:
+        err = body.get("error") or {}
+        msg = err.get("message")
+        if msg:
+            return msg
+    except AttributeError:
+        pass
+    return fallback or f"HTTP {status}"
+
+
+async def _single_call(
+    client: httpx.AsyncClient,
+    url: str,
+    payload: dict,
+    api_key: str,
+) -> dict:
+    """One POST to Gemini. Translates HTTP errors into domain exceptions."""
+    try:
+        response = await client.post(
+            url,
+            json=payload,
+            headers={
+                "x-goog-api-key": api_key,
+                "Content-Type": "application/json",
+            },
+            timeout=HTTP_TIMEOUT,
+        )
+    except httpx.TimeoutException as exc:
+        raise TimeoutError("Gemini API request timed out.") from exc
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"Network error calling Gemini: {exc}") from exc
+
+    try:
+        body = response.json()
+    except Exception:
+        body = {}
+
+    if response.status_code == 200:
+        return body
+
+    if response.status_code == 429:
+        raise _GeminiRateLimited(body)
+
+    message = _extract_error_message(body, response.status_code, response.text)
+    lowered = message.lower()
+    if (
+        response.status_code in (401, 403)
+        or "api key not valid" in lowered
+        or "api_key_invalid" in lowered
+        or "api key expired" in lowered
+    ):
+        raise InvalidAPIKeyError(message)
+
+    raise RuntimeError(f"Gemini API error {response.status_code}: {message}")
+
+
+async def _call_with_retry(
+    client: httpx.AsyncClient,
+    url: str,
+    payload: dict,
+    api_key: str,
+) -> dict:
+    """Retry wrapper honoring Gemini's retryDelay hint."""
+    last_body: dict = {}
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            return await client.chat.completions.create(**kwargs)
-        except RateLimitError as exc:
-            last_exc = exc
-            # Fail fast on non-retryable quota errors
-            if _is_permanent_quota_error(exc):
+            return await _single_call(client, url, payload, api_key)
+        except _GeminiRateLimited as exc:
+            last_body = exc.body
+            if _is_permanent_quota_error(exc.body):
                 logger.warning("Gemini quota permanently exhausted: %s", exc)
                 raise QuotaExhaustedError(
                     "Gemini API quota is permanently exhausted for this key "
@@ -164,11 +252,11 @@ async def _chat_with_retry(client: AsyncOpenAI, **kwargs):
                 ) from exc
             if attempt == MAX_RETRIES:
                 break
-            hinted = _parse_retry_delay(exc)
+            hinted = _parse_retry_delay(exc.body)
             if hinted is not None:
-                delay = hinted + 1.0  # small safety margin
+                delay = hinted + 1.0
             else:
-                delay = DEFAULT_RETRY_DELAY * attempt  # 20, 40, 60...
+                delay = DEFAULT_RETRY_DELAY * attempt
             delay = min(delay, MAX_RETRY_DELAY) + random.uniform(0, 2)
             logger.warning(
                 "Gemini 429 on attempt %d/%d — sleeping %.1fs before retry",
@@ -177,10 +265,11 @@ async def _chat_with_retry(client: AsyncOpenAI, **kwargs):
                 delay,
             )
             await asyncio.sleep(delay)
-    assert last_exc is not None
+
     raise QuotaExhaustedError(
-        "Gemini API rate limit persists after retries. Quota likely exhausted."
-    ) from last_exc
+        "Gemini API rate limit persists after retries: "
+        f"{_extract_error_message(last_body, 429, 'rate limited')}"
+    )
 
 
 def _truncate_text(text: str, max_chars: int = 800_000) -> str:
@@ -191,8 +280,6 @@ def _truncate_text(text: str, max_chars: int = 800_000) -> str:
     """
     if len(text) <= max_chars:
         return text
-
-    # Keep first 70% and last 30% to preserve funding/COI sections
     head_size = int(max_chars * 0.7)
     tail_size = max_chars - head_size
     return (
@@ -214,6 +301,29 @@ def _strip_fences(raw: str) -> str:
     return raw.strip()
 
 
+def _extract_response_text(response_body: dict) -> str:
+    """Pull the generated text out of a Gemini generateContent response."""
+    candidates = response_body.get("candidates") or []
+    if not candidates:
+        pf = response_body.get("promptFeedback") or {}
+        block_reason = pf.get("blockReason")
+        if block_reason:
+            raise RuntimeError(f"Gemini blocked the request: {block_reason}")
+        raise RuntimeError("Gemini returned no candidates.")
+
+    cand = candidates[0]
+    content = cand.get("content") or {}
+    parts = content.get("parts") or []
+    text_parts = [p.get("text", "") for p in parts if "text" in p]
+    text = "".join(text_parts).strip()
+    if not text:
+        finish_reason = cand.get("finishReason")
+        raise RuntimeError(
+            f"Gemini returned an empty response (finishReason={finish_reason})."
+        )
+    return text
+
+
 async def extract_paper_data(
     paper_text: str,
     api_key: str | None = None,
@@ -224,29 +334,36 @@ async def extract_paper_data(
     ``settings.gemini_api_key``. This enables each end-user to bring their
     own key so quota is scoped to the caller.
     """
-    key = api_key or settings.gemini_api_key
+    key = (api_key or "").strip() or settings.gemini_api_key
     if not key:
-        raise ValueError("No Gemini API key available (neither user-provided nor server-configured).")
-    client = AsyncOpenAI(
-        api_key=key,
-        base_url=GEMINI_BASE_URL,
-    )
+        raise InvalidAPIKeyError(
+            "No Gemini API key available (neither user-provided nor server-configured)."
+        )
 
     truncated = _truncate_text(paper_text)
     prompt = EXTRACTION_PROMPT.format(paper_text=truncated)
 
-    async with _SEMAPHORE:
-        response = await _chat_with_retry(
-            client,
-            model=settings.model_name,
-            max_tokens=4096,
-            messages=[
-                {"role": "system", "content": EXTRACTION_SYSTEM},
-                {"role": "user", "content": prompt},
-            ],
-        )
+    payload = {
+        "systemInstruction": {
+            "parts": [{"text": EXTRACTION_SYSTEM}],
+        },
+        "contents": [
+            {"role": "user", "parts": [{"text": prompt}]},
+        ],
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": 4096,
+            "responseMimeType": "application/json",
+        },
+    }
 
-    raw = _strip_fences(response.choices[0].message.content or "")
+    url = f"{GEMINI_API_BASE}/models/{settings.model_name}:generateContent"
+
+    async with _SEMAPHORE:
+        async with httpx.AsyncClient() as client:
+            response_body = await _call_with_retry(client, url, payload, key)
+
+    raw = _strip_fences(_extract_response_text(response_body))
 
     try:
         data = json.loads(raw)

@@ -11,10 +11,9 @@ from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from openai import AuthenticationError
 
 from .config import settings
-from .extractor import QuotaExhaustedError, extract_paper_data
+from .extractor import InvalidAPIKeyError, QuotaExhaustedError, extract_paper_data
 from .models import AnalysisResult
 from .pdf_parser import extract_text
 from .scoring import score_paper
@@ -111,8 +110,8 @@ async def analyze_paper(
         result = await _analyze_single(save_path, file.filename, api_key=key)
     except QuotaExhaustedError as exc:
         raise HTTPException(status_code=429, detail=QUOTA_ERROR_MESSAGE) from exc
-    except AuthenticationError as exc:
-        raise HTTPException(status_code=401, detail=AUTH_ERROR_MESSAGE) from exc
+    except InvalidAPIKeyError as exc:
+        raise HTTPException(status_code=401, detail=f"{AUTH_ERROR_MESSAGE} ({exc})") from exc
     finally:
         save_path.unlink(missing_ok=True)
 
@@ -135,7 +134,7 @@ async def _analyze_single(
     # Step 2: LLM extraction — let quota/auth errors propagate unchanged
     try:
         extracted = await extract_paper_data(text, api_key=api_key)
-    except (QuotaExhaustedError, AuthenticationError):
+    except (QuotaExhaustedError, InvalidAPIKeyError):
         raise
     except Exception as exc:
         logger.error("LLM extraction failed for %s: %s", filename, exc)
@@ -196,7 +195,7 @@ async def analyze_batch(
             except QuotaExhaustedError as exc:
                 quota_hit.set()
                 err = f"Gemini quota exhausted: {exc}"
-            except AuthenticationError as exc:
+            except InvalidAPIKeyError as exc:
                 quota_hit.set()
                 err = f"Invalid API key: {exc}"
             except Exception as exc:
@@ -261,7 +260,7 @@ async def analyze_text(
         extracted = await extract_paper_data(text, api_key=key)
     except QuotaExhaustedError as exc:
         raise HTTPException(status_code=429, detail=QUOTA_ERROR_MESSAGE) from exc
-    except AuthenticationError as exc:
-        raise HTTPException(status_code=401, detail=AUTH_ERROR_MESSAGE) from exc
+    except InvalidAPIKeyError as exc:
+        raise HTTPException(status_code=401, detail=f"{AUTH_ERROR_MESSAGE} ({exc})") from exc
 
     return score_paper(extracted, filename="text_input")
