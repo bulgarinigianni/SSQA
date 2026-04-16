@@ -479,6 +479,32 @@ body {
     color: var(--text);
 }
 
+/* Legend chips for the Quality % color buckets */
+.legend-chips {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.legend-chip {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    line-height: 1.5;
+    letter-spacing: 0.2px;
+}
+
+.legend-chip.chip-gold   { background: var(--medal-gold-bg);   color: var(--medal-gold);   border: 1px solid var(--medal-gold-border); }
+.legend-chip.chip-silver { background: var(--medal-silver-bg); color: var(--medal-silver); border: 1px solid var(--medal-silver-border); }
+.legend-chip.chip-bronze { background: var(--medal-bronze-bg); color: var(--medal-bronze); border: 1px solid var(--medal-bronze-border); }
+.legend-chip.chip-blue   { background: var(--cat-blue-bg);     color: var(--cat-blue);     border: 1px solid var(--cat-blue-border); }
+.legend-chip.chip-black  { background: #0b0f1a;                color: #ffffff;             border: 1px solid #000000; }
+
 @media (max-width: 768px) {
     .ref-grid { grid-template-columns: 1fr; }
     .reference-panel { padding: 20px 16px; }
@@ -566,7 +592,7 @@ body {
 .category-practical_evidence { background: var(--medal-silver-bg); color: var(--medal-silver); border: 1px solid var(--medal-silver-border); }
 .category-exploratory { background: var(--medal-bronze-bg); color: var(--medal-bronze); border: 1px solid var(--medal-bronze-border); }
 .category-weak { background: var(--cat-blue-bg); color: var(--cat-blue); border: 1px solid var(--cat-blue-border); }
-.category-black_flag { background: var(--cat-black-bg); color: var(--cat-black); border: 1px solid var(--cat-black-border); }
+.category-black_flag { background: #0b0f1a; color: #ffffff; border: 1px solid #000000; box-shadow: inset 0 0 0 1px #1f2937; }
 .category-error { background: var(--red-bg); color: var(--red); border: 1px solid #fca5a5; }
 
 /* -- Details Grid -- */
@@ -615,18 +641,26 @@ body {
 .value-negative { color: var(--red); }
 .value-neutral { color: var(--text-secondary); }
 
-/* -- Explanation -- */
+/* -- Explanation (the AI's verdict — most important text on the card) -- */
 .result-explanation {
-    padding: 20px 24px;
+    padding: 20px 24px 22px 28px;
     border-top: 1px solid var(--border);
-    background: var(--bg);
-    font-size: 13px;
-    line-height: 1.7;
-    color: var(--text-secondary);
+    border-left: 5px solid var(--accent);
+    background: linear-gradient(135deg, #eff4ff 0%, #f8faff 100%);
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--text);
+    position: relative;
 }
 
 .result-explanation strong {
-    color: var(--text);
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.3px;
+    color: var(--accent);
+    margin-bottom: 8px;
 }
 
 

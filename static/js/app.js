@@ -526,7 +526,7 @@
             </div>
 
             <div class="result-explanation">
-                <strong>Assessment:</strong> ${escapeHtml(s.explanation)}
+                <strong>Assessment</strong>${escapeHtml(s.explanation)}
             </div>
         </div>`;
     }

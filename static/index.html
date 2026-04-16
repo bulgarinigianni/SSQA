@@ -139,7 +139,15 @@
                     <li><strong>COI Filter:</strong> Applied only when COI is <em>obvious</em> (funder undeniably sells the product tested). Ambiguous COI is flagged but not penalized.</li>
                     <li><strong>BLACK FLAG:</strong> Reserved exclusively for predatory journals. COI does not trigger BLACK FLAG.</li>
                     <li><strong>Null-on-Unknown:</strong> If data cannot be reliably extracted from the paper, it is left null — never invented.</li>
-                    <li><strong>Quality % (ring):</strong> Percentage of the maximum achievable score for that study design (e.g. 6.5/7 = 93%). Enables fair comparison across different study types.</li>
+                    <li><strong>Quality % (ring):</strong> Percentage of the maximum achievable score for that study design (e.g. 6.5/7 = 93%). Enables fair comparison across different study types. The ring color reflects this percentage:
+                        <span class="legend-chips">
+                            <span class="legend-chip chip-gold">Gold &ge; 85%</span>
+                            <span class="legend-chip chip-silver">Silver 70&ndash;84%</span>
+                            <span class="legend-chip chip-bronze">Bronze 50&ndash;69%</span>
+                            <span class="legend-chip chip-blue">Blue 30&ndash;49%</span>
+                            <span class="legend-chip chip-black">Black &lt; 30%</span>
+                        </span>
+                    </li>
                     <li><strong>Confidence (extraction reliability):</strong> How many key fields the AI successfully extracted. <span style="color:var(--green);font-weight:600">High</span> &ge; 80% &nbsp;&middot;&nbsp; <span style="color:var(--yellow);font-weight:600">Medium</span> &ge; 55% &nbsp;&middot;&nbsp; <span style="color:var(--red);font-weight:600">Low</span> &lt; 55%. Low confidence signals a hard-to-read PDF or incomplete information in the paper.</li>
                 </ul>
             </div>
