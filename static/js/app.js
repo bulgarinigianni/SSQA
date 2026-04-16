@@ -22,6 +22,8 @@
     const statusDot = document.getElementById("statusDot");
     const statusText = document.getElementById("statusText");
     const toast = document.getElementById("toast");
+    const toastMsg = document.getElementById("toastMsg");
+    const toastClose = document.getElementById("toastClose");
     const apiKeyInput = document.getElementById("apiKeyInput");
     const apiKeySaveBtn = document.getElementById("apiKeySaveBtn");
     const apiKeyClearBtn = document.getElementById("apiKeyClearBtn");
@@ -67,24 +69,36 @@
     const existing = getStoredKey();
     if (existing) apiKeyInput.value = existing;
 
-    apiKeySaveBtn.addEventListener("click", () => {
-        const v = apiKeyInput.value.trim();
+    // Render initial key state immediately (before async health check) so the
+    // user always sees a badge — avoids an empty-looking UI on boot
+    renderKeyState();
+    updateStatusDot();
+
+    apiKeySaveBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        const v = (apiKeyInput.value || "").trim();
         if (!v) {
             showToast("Paste a Gemini API key before saving.");
             return;
         }
-        localStorage.setItem(API_KEY_STORAGE, v);
+        try {
+            localStorage.setItem(API_KEY_STORAGE, v);
+        } catch (e) {
+            showToast("Could not save to browser storage: " + e.message);
+            return;
+        }
         renderKeyState();
         updateStatusDot();
-        showToast("API key saved to your browser.", "success");
+        showToast("Personal API key saved — analyses will now use your own quota.", "success");
     });
 
-    apiKeyClearBtn.addEventListener("click", () => {
+    apiKeyClearBtn.addEventListener("click", (event) => {
+        event.preventDefault();
         localStorage.removeItem(API_KEY_STORAGE);
         apiKeyInput.value = "";
         renderKeyState();
         updateStatusDot();
-        showToast("API key cleared. Falling back to server key.", "success");
+        showToast("API key cleared. Falling back to the shared server key.", "success");
     });
 
     // --- Health check ---
@@ -97,6 +111,7 @@
             serverHasKey = false;
             statusDot.classList.add("offline");
             statusText.textContent = "Offline";
+            renderKeyState();
             return;
         }
         updateStatusDot();
@@ -105,11 +120,27 @@
     checkHealth();
 
     // --- Toast ---
-    function showToast(msg, type = "error", duration = 4000) {
-        toast.textContent = msg;
+    // Errors stay visible until the user clicks the close button.
+    // Success toasts auto-dismiss after 4s.
+    toastClose.addEventListener("click", () => {
+        toast.classList.remove("show");
+        if (toast.__timer) { clearTimeout(toast.__timer); toast.__timer = null; }
+    });
+
+    function showToast(msg, type = "error", duration) {
+        toastMsg.textContent = msg;
         toast.className = `toast toast-${type} show`;
-        if (duration > 0) {
-            setTimeout(() => toast.classList.remove("show"), duration);
+        if (toast.__timer) { clearTimeout(toast.__timer); toast.__timer = null; }
+        // Default: success auto-dismisses (4s), errors stay until closed.
+        // Callers can override by passing an explicit duration in ms.
+        let ms;
+        if (typeof duration === "number") {
+            ms = duration;
+        } else {
+            ms = type === "success" ? 4000 : 0;
+        }
+        if (ms > 0) {
+            toast.__timer = setTimeout(() => toast.classList.remove("show"), ms);
         }
     }
 
@@ -204,9 +235,10 @@
         }, 1000);
 
         // Abort the request after a hard client-side timeout so the UI never
-        // feels "infinite". 3 min for single, 4 min for batch.
+        // feels "infinite". 100s for single, 180s for batch — matches the
+        // server's worst-case retry budget (3 retries x 35s) with some slack.
         const controller = new AbortController();
-        const timeoutMs = isBatch ? 240000 : 180000;
+        const timeoutMs = isBatch ? 180000 : 100000;
         const timer = setTimeout(() => controller.abort(), timeoutMs);
 
         const formData = new FormData();
@@ -232,17 +264,11 @@
             if (!res.ok) {
                 const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
                 const detail = err.detail || `HTTP ${res.status}`;
-
-                // Dedicated surfaces for user-recoverable errors
-                if (res.status === 429) {
-                    showToast(detail, "error", 14000);
-                    return;
-                }
-                if (res.status === 401) {
-                    showToast(detail, "error", 10000);
-                    return;
-                }
-                throw new Error(detail);
+                // 429 (quota) and 401 (invalid key) are sticky errors —
+                // the toast stays until the user dismisses it so they have
+                // time to read the full explanation.
+                showToast(detail);
+                return;
             }
 
             const data = await res.json();
@@ -253,9 +279,12 @@
             resultsSection.scrollIntoView({ behavior: "smooth" });
         } catch (err) {
             if (err.name === "AbortError") {
-                showToast(`Request timed out after ${timeoutMs / 1000}s. The Gemini API may be rate-limited or unreachable. Try again in a minute, or paste a personal API key above to use your own quota.`, "error", 10000);
+                showToast(
+                    `Request timed out after ${timeoutMs / 1000}s. The Gemini API is likely rate-limited or unreachable. ` +
+                    `Try again, switch to a personal API key above (uses your own quota), or verify your connection.`
+                );
             } else {
-                showToast(err.message);
+                showToast(err.message || "Unknown error");
             }
         } finally {
             clearTimeout(timer);
