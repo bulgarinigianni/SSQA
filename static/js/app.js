@@ -432,6 +432,46 @@
             </div>`;
         }
 
+        // AMSTAR-2 HTML
+        let amstarHtml = "";
+        if (e.amstar2_criteria && (e.study_design === "meta_analysis" || e.study_design === "systematic_review")) {
+            const ac = e.amstar2_criteria;
+            const CRITICAL = new Set(["A2", "A4", "A7", "A9", "A11", "A13", "A15"]);
+            const items = [
+                { key: "A1",  label: "PICO",               val: ac.a1_pico },
+                { key: "A2",  label: "Protocol Registered", val: ac.a2_protocol_registered },
+                { key: "A3",  label: "Design Explained",    val: ac.a3_study_design_explained },
+                { key: "A4",  label: "Comprehensive Search",val: ac.a4_comprehensive_search },
+                { key: "A5",  label: "Duplicate Selection",  val: ac.a5_duplicate_selection },
+                { key: "A6",  label: "Duplicate Extraction", val: ac.a6_duplicate_extraction },
+                { key: "A7",  label: "Excluded Listed",      val: ac.a7_excluded_studies_listed },
+                { key: "A8",  label: "Studies Described",    val: ac.a8_studies_described },
+                { key: "A9",  label: "RoB Assessed",        val: ac.a9_risk_of_bias_assessed },
+                { key: "A10", label: "Funding Reported",     val: ac.a10_funding_reported },
+                { key: "A11", label: "Stats Methods",        val: ac.a11_statistical_methods },
+                { key: "A12", label: "RoB Impact",           val: ac.a12_rob_impact_assessed },
+                { key: "A13", label: "RoB Interpreted",      val: ac.a13_rob_in_interpretation },
+                { key: "A14", label: "Heterogeneity",        val: ac.a14_heterogeneity_discussed },
+                { key: "A15", label: "Publication Bias",     val: ac.a15_publication_bias },
+                { key: "A16", label: "COI Disclosed",        val: ac.a16_coi_disclosed },
+            ];
+            const gridHtml = items.map(it => {
+                const cls = it.val === true ? "met" : it.val === false ? "not-met" : "unknown";
+                const crit = CRITICAL.has(it.key) ? " critical" : "";
+                return `<div class="amstar-item"><div class="amstar-cell ${cls}${crit}" title="${it.label}${crit ? ' (CRITICAL)' : ''}">${it.key}</div><div class="amstar-label">${it.label}</div></div>`;
+            }).join("");
+
+            amstarHtml = `
+            <div class="detail-section" style="grid-column: 1/-1">
+                <h4>AMSTAR-2 Assessment (critical items marked with border)</h4>
+                <div class="amstar-grid">${gridHtml}</div>
+                <div class="detail-row" style="margin-top:8px">
+                    <span class="label">Criteria Met</span>
+                    <span class="value">${s.amstar2_met != null ? s.amstar2_met + "/16" : "N/A"}</span>
+                </div>
+            </div>`;
+        }
+
         // Authors
         const authors = e.authors && e.authors.length > 0
             ? e.authors.slice(0, 3).join(", ") + (e.authors.length > 3 ? ` et al.` : "")
@@ -462,6 +502,7 @@
                         ${escapeHtml(authors)} ${e.year ? `(${e.year})` : ""} ${e.journal ? `— ${escapeHtml(e.journal)}` : ""}
                     </div>
                     <span class="category-badge category-${s.category}">${s.category_label}</span>
+                    ${s.methodology_tool && s.methodology_tool !== "Generic" ? `<span class="methodology-badge">${escapeHtml(s.methodology_tool)}${s.methodology_tool === "PEDro" && s.pedro_score != null ? ": " + s.pedro_score + "/10" : ""}${s.methodology_tool === "AMSTAR-2" && s.amstar2_met != null ? ": " + s.amstar2_met + "/16" : ""}</span>` : ""}
                 </div>
             </div>
 
@@ -485,7 +526,7 @@
                     <div class="detail-row"><span class="label">Design Cap</span><span class="value">${s.design_cap}/10</span></div>
                     <div class="detail-row"><span class="label">Base Methodology</span><span class="value">${s.base_methodology_score.toFixed(1)}</span></div>
                     <div class="detail-row"><span class="label">Sample Adj.</span><span class="value ${s.sample_size_adjustment > 0 ? "value-positive" : s.sample_size_adjustment < 0 ? "value-negative" : "value-neutral"}">${s.sample_size_adjustment > 0 ? "+" : ""}${s.sample_size_adjustment.toFixed(1)}</span></div>
-                    ${s.large_sample_bonus > 0 ? `<div class="detail-row"><span class="label">Large Sample (N&gt;500)</span><span class="value value-positive">+${s.large_sample_bonus.toFixed(1)}</span></div>` : ""}
+                    ${s.large_sample_bonus > 0 ? `<div class="detail-row"><span class="label">Large Sample (N&ge;100)</span><span class="value value-positive">+${s.large_sample_bonus.toFixed(1)}</span></div>` : ""}
                     ${s.elite_exception_applied ? `<div class="detail-row"><span class="label">Elite Exception</span><span class="value value-positive">Applied</span></div>` : ""}
                     ${s.registered_protocol_bonus > 0 ? `<div class="detail-row"><span class="label">Registered Protocol</span><span class="value value-positive">+${s.registered_protocol_bonus.toFixed(1)}</span></div>` : ""}
                     <div class="detail-row"><span class="label">Institution Bonus</span><span class="value ${s.institutional_bonus > 0 ? "value-positive" : "value-neutral"}">${s.bonuses_nullified ? "Nullified (COI)" : (s.institutional_bonus > 0 ? "+" + s.institutional_bonus.toFixed(1) : "0.0")}</span></div>
@@ -523,6 +564,7 @@
                 </div>
 
                 ${pedroHtml}
+                ${amstarHtml}
             </div>
 
             <div class="result-explanation">

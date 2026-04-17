@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import ClassVar
+
 from pydantic import BaseModel, Field
 
 
@@ -51,6 +53,76 @@ class PEDroCriteria(BaseModel):
         return sum(1 for c in criteria if c is not None)
 
 
+class AMSTAR2Criteria(BaseModel):
+    """AMSTAR-2 criteria for systematic reviews and meta-analyses.
+
+    7 critical criteria (items 2, 4, 7, 9, 11, 13, 15) are weighted 1.5x in scoring.
+    """
+
+    CRITICAL_KEYS: ClassVar[frozenset[str]] = frozenset(
+        {"a2", "a4", "a7", "a9", "a11", "a13", "a15"}
+    )
+
+    a1_pico: bool | None = Field(None, description="Research questions and inclusion criteria include PICO components")
+    a2_protocol_registered: bool | None = Field(None, description="Protocol registered before the review (CRITICAL)")
+    a3_study_design_explained: bool | None = Field(None, description="Study design selection explained")
+    a4_comprehensive_search: bool | None = Field(None, description="Comprehensive literature search strategy used (CRITICAL)")
+    a5_duplicate_selection: bool | None = Field(None, description="Study selection performed in duplicate")
+    a6_duplicate_extraction: bool | None = Field(None, description="Data extraction performed in duplicate")
+    a7_excluded_studies_listed: bool | None = Field(None, description="List of excluded studies with justifications provided (CRITICAL)")
+    a8_studies_described: bool | None = Field(None, description="Included studies described in adequate detail")
+    a9_risk_of_bias_assessed: bool | None = Field(None, description="Satisfactory risk of bias assessment for included studies (CRITICAL)")
+    a10_funding_reported: bool | None = Field(None, description="Funding sources of included studies reported")
+    a11_statistical_methods: bool | None = Field(None, description="Appropriate statistical methods used for meta-analysis (CRITICAL)")
+    a12_rob_impact_assessed: bool | None = Field(None, description="Impact of risk of bias on results assessed")
+    a13_rob_in_interpretation: bool | None = Field(None, description="Risk of bias accounted for in discussion/interpretation (CRITICAL)")
+    a14_heterogeneity_discussed: bool | None = Field(None, description="Heterogeneity discussed and explored")
+    a15_publication_bias: bool | None = Field(None, description="Publication bias investigated and discussed (CRITICAL)")
+    a16_coi_disclosed: bool | None = Field(None, description="Conflicts of interest disclosed by review authors")
+
+    def _all_criteria(self) -> dict[str, bool | None]:
+        return {
+            "a1": self.a1_pico,
+            "a2": self.a2_protocol_registered,
+            "a3": self.a3_study_design_explained,
+            "a4": self.a4_comprehensive_search,
+            "a5": self.a5_duplicate_selection,
+            "a6": self.a6_duplicate_extraction,
+            "a7": self.a7_excluded_studies_listed,
+            "a8": self.a8_studies_described,
+            "a9": self.a9_risk_of_bias_assessed,
+            "a10": self.a10_funding_reported,
+            "a11": self.a11_statistical_methods,
+            "a12": self.a12_rob_impact_assessed,
+            "a13": self.a13_rob_in_interpretation,
+            "a14": self.a14_heterogeneity_discussed,
+            "a15": self.a15_publication_bias,
+            "a16": self.a16_coi_disclosed,
+        }
+
+    def weighted_score(self) -> tuple[float, float]:
+        """Weighted AMSTAR-2 score. Critical items = 1.5x, others = 1.0x.
+
+        Returns (earned, max_possible) considering only answered items.
+        """
+        earned = 0.0
+        max_possible = 0.0
+        for key, val in self._all_criteria().items():
+            if val is None:
+                continue
+            w = 1.5 if key in self.CRITICAL_KEYS else 1.0
+            max_possible += w
+            if val is True:
+                earned += w
+        return earned, max_possible
+
+    def met_count(self) -> int:
+        return sum(1 for v in self._all_criteria().values() if v is True)
+
+    def answered_count(self) -> int:
+        return sum(1 for v in self._all_criteria().values() if v is not None)
+
+
 class ExtractedData(BaseModel):
     """Structured data extracted from a sport-science paper by the LLM."""
 
@@ -93,6 +165,9 @@ class ExtractedData(BaseModel):
     pedro_criteria: PEDroCriteria | None = Field(
         None, description="PEDro criteria — only for RCT designs"
     )
+    amstar2_criteria: AMSTAR2Criteria | None = Field(
+        None, description="AMSTAR-2 criteria — only for meta-analysis / systematic review designs"
+    )
 
     statistical_methods: str | None = None
     effect_size_reported: bool | None = None
@@ -123,9 +198,12 @@ class ScoringBreakdown(BaseModel):
 
     design_category: str
     design_cap: float
+    methodology_tool: str = "Generic"
     base_methodology_score: float
     pedro_score: int | None = None
     pedro_answered: int | None = None
+    amstar2_met: int | None = None
+    amstar2_answered: int | None = None
     sample_size_adjustment: float = 0.0
     large_sample_bonus: float = 0.0
     elite_exception_applied: bool = False

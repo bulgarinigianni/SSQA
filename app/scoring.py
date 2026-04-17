@@ -13,7 +13,7 @@ Scoring pipeline:
 
 from __future__ import annotations
 
-from .models import AnalysisResult, ConfidenceReport, ExtractedData, ScoringBreakdown
+from .models import AMSTAR2Criteria, AnalysisResult, ConfidenceReport, ExtractedData, ScoringBreakdown
 
 # ---------------------------------------------------------------------------
 # 1. Study Design Caps
@@ -282,6 +282,31 @@ def _base_methodology_score_generic(data: ExtractedData, cap: float) -> float:
     return max(cap * 0.3, min(cap, base + adjustments))
 
 
+AMSTAR2_DESIGNS = {"meta_analysis", "systematic_review"}
+
+
+def _base_methodology_score_amstar2(
+    data: ExtractedData, cap: float
+) -> tuple[float, int | None, int | None]:
+    """Score a meta-analysis/systematic review using AMSTAR-2 weighted criteria.
+
+    Critical criteria (7 items) are weighted 1.5×, non-critical (9) at 1.0×.
+    When criteria are missing, falls back to 50% of cap.
+    Returns (score, met_count, answered_count).
+    """
+    if data.amstar2_criteria is None:
+        return cap * 0.5, None, None
+
+    amstar = data.amstar2_criteria
+    earned, max_possible = amstar.weighted_score()
+
+    if max_possible == 0:
+        return cap * 0.5, 0, 0
+
+    ratio = earned / max_possible
+    return ratio * cap, amstar.met_count(), amstar.answered_count()
+
+
 # ===== Adjustments =====
 
 def _sample_size_adjustment(data: ExtractedData) -> tuple[float, float, bool]:
@@ -349,6 +374,13 @@ def _build_explanation(data: ExtractedData, breakdown: ScoringBreakdown) -> str:
             f"({breakdown.pedro_answered}/10 criteria assessable)."
         )
 
+    if breakdown.amstar2_met is not None:
+        parts.append(
+            f"AMSTAR-2 assessment: {breakdown.amstar2_met}/16 criteria met "
+            f"({breakdown.amstar2_answered}/16 assessable). "
+            "Critical criteria weighted 1.5x in score calculation."
+        )
+
     if breakdown.sample_size_adjustment != 0:
         if breakdown.sample_size_adjustment > 0:
             parts.append(f"Sample size bonus: +{breakdown.sample_size_adjustment:.1f}.")
@@ -413,7 +445,7 @@ def _build_explanation(data: ExtractedData, breakdown: ScoringBreakdown) -> str:
 
 def compute_confidence(data: ExtractedData) -> ConfidenceReport:
     """Assess how complete the extraction was."""
-    key_fields = {
+    key_fields: dict[str, object] = {
         "title": data.title,
         "authors": data.authors if data.authors else None,
         "year": data.year,
@@ -431,6 +463,12 @@ def compute_confidence(data: ExtractedData) -> ConfidenceReport:
         "ecological_context": data.ecological_context,
         "main_findings_summary": data.main_findings_summary,
     }
+
+    design = data.study_design or ""
+    if design == "rct":
+        key_fields["pedro_criteria"] = data.pedro_criteria
+    elif design in AMSTAR2_DESIGNS:
+        key_fields["amstar2_criteria"] = data.amstar2_criteria
 
     total = len(key_fields)
     missing = [k for k, v in key_fields.items() if v is None]
@@ -463,8 +501,16 @@ def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisR
     # --- 1. Base methodology score ---
     pedro_score = None
     pedro_answered = None
+    amstar2_met = None
+    amstar2_answered = None
+    methodology_tool = "Generic"
+
     if design == "rct":
         base, pedro_score, pedro_answered = _base_methodology_score_rct(data, cap)
+        methodology_tool = "PEDro"
+    elif design in AMSTAR2_DESIGNS:
+        base, amstar2_met, amstar2_answered = _base_methodology_score_amstar2(data, cap)
+        methodology_tool = "AMSTAR-2"
     else:
         base = _base_methodology_score_generic(data, cap)
 
@@ -523,9 +569,12 @@ def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisR
     breakdown = ScoringBreakdown(
         design_category=design,
         design_cap=cap,
+        methodology_tool=methodology_tool,
         base_methodology_score=round(base, 2),
         pedro_score=pedro_score,
         pedro_answered=pedro_answered,
+        amstar2_met=amstar2_met,
+        amstar2_answered=amstar2_answered,
         sample_size_adjustment=sample_adj,
         large_sample_bonus=large_bonus,
         elite_exception_applied=elite_exception,

@@ -79,6 +79,7 @@ Pay special attention to:
   If the connection is indirect or unclear, mark "ambiguous". If no conflict, mark "none".
 - Population type: distinguish elite/professional athletes from recreational/students
 - For RCTs: evaluate every PEDro criterion carefully (C1-C11)
+- For systematic reviews / meta-analyses: evaluate every AMSTAR-2 criterion carefully (A1-A16)
 - Whether the study was conducted in the field (real training/match) vs laboratory
 - Whether a control or comparison group was used
 - Whether the study protocol was pre-registered (ClinicalTrials.gov, PROSPERO, OSF, etc.)
@@ -118,6 +119,24 @@ Return ONLY a JSON object matching this exact schema (use null for unknown field
     "c10_between_group": true_or_false_or_null,
     "c11_point_variability": true_or_false_or_null
   }},
+  "amstar2_criteria": {{
+    "a1_pico": true_or_false_or_null,
+    "a2_protocol_registered": true_or_false_or_null,
+    "a3_study_design_explained": true_or_false_or_null,
+    "a4_comprehensive_search": true_or_false_or_null,
+    "a5_duplicate_selection": true_or_false_or_null,
+    "a6_duplicate_extraction": true_or_false_or_null,
+    "a7_excluded_studies_listed": true_or_false_or_null,
+    "a8_studies_described": true_or_false_or_null,
+    "a9_risk_of_bias_assessed": true_or_false_or_null,
+    "a10_funding_reported": true_or_false_or_null,
+    "a11_statistical_methods": true_or_false_or_null,
+    "a12_rob_impact_assessed": true_or_false_or_null,
+    "a13_rob_in_interpretation": true_or_false_or_null,
+    "a14_heterogeneity_discussed": true_or_false_or_null,
+    "a15_publication_bias": true_or_false_or_null,
+    "a16_coi_disclosed": true_or_false_or_null
+  }},
   "statistical_methods": "string or null",
   "effect_size_reported": true_or_false_or_null,
   "confidence_intervals_reported": true_or_false_or_null,
@@ -129,7 +148,8 @@ Return ONLY a JSON object matching this exact schema (use null for unknown field
 }}
 
 IMPORTANT:
-- pedro_criteria should ONLY be filled in if study_design is "rct". For non-RCT designs, set pedro_criteria to null.
+- pedro_criteria should ONLY be filled in if study_design is "rct". For all other designs, set pedro_criteria to null.
+- amstar2_criteria should ONLY be filled in if study_design is "meta_analysis" or "systematic_review". For all other designs, set amstar2_criteria to null. Pay careful attention to critical items (A2, A4, A7, A9, A11, A13, A15) — these carry extra weight in scoring.
 - funder_sells_product is CRITICAL. Examine funding disclosures, COI statements, and author affiliations very carefully.
 - coi_severity: use "obvious" ONLY when the evidence is undeniable (e.g. company X funds study AND company X sells the exact product being tested). If it is merely suspicious or indirect, use "ambiguous". Do NOT inflate — false COI flags damage good research.
 - For population_type, "elite" means national team / Olympic / international level; "professional" means paid professional athletes; distinguish from "university_students" or "recreational".
@@ -352,7 +372,7 @@ async def extract_paper_data(
         ],
         "generationConfig": {
             "temperature": 0.2,
-            "maxOutputTokens": 4096,
+            "maxOutputTokens": 8192,
             "responseMimeType": "application/json",
         },
     }
