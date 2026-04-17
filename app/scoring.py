@@ -190,7 +190,7 @@ COI_PENALTY_OBVIOUS = 3.0
 # ---------------------------------------------------------------------------
 # 6. Sample size thresholds
 # ---------------------------------------------------------------------------
-SAMPLE_SIZE_LARGE = 500
+SAMPLE_SIZE_LARGE = 100
 SAMPLE_SIZE_GOOD = 50
 SAMPLE_SIZE_MODERATE = 20
 SAMPLE_SIZE_SMALL = 10
@@ -202,7 +202,7 @@ ELITE_POPULATION_TYPES = {"elite", "professional"}
 # ---------------------------------------------------------------------------
 # 7. Additional bonuses
 # ---------------------------------------------------------------------------
-REGISTERED_PROTOCOL_BONUS = 0.3
+REGISTERED_PROTOCOL_BONUS = 0.5
 
 
 # ===== Matching helpers =====
@@ -294,7 +294,7 @@ def _sample_size_adjustment(data: ExtractedData) -> tuple[float, float, bool]:
     large_bonus = 0.0
     elite_exc = False
 
-    # Large sample bonus (N > 500)
+    # Large sample bonus (N >= 100)
     if data.sample_size >= SAMPLE_SIZE_LARGE:
         large_bonus = LARGE_SAMPLE_BONUS
 

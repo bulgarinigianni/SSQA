@@ -105,8 +105,8 @@
                     <tbody>
                         <tr class="row-positive"><td>Elite Institution</td><td>+0.5</td><td>Aspetar, IOC, UEFA, top clubs, etc.</td></tr>
                         <tr class="row-positive"><td>Elite Journal</td><td>+0.5</td><td>BJSM, MSSE, AJSM, Lancet, etc.</td></tr>
-                        <tr class="row-positive"><td>Large Sample</td><td>+0.4</td><td>N &gt; 500</td></tr>
-                        <tr class="row-positive"><td>Registered Protocol</td><td>+0.3</td><td>Pre-registered on ClinicalTrials.gov, PROSPERO, OSF</td></tr>
+                        <tr class="row-positive"><td>Large Sample</td><td>+0.4</td><td>N &ge; 100</td></tr>
+                        <tr class="row-positive"><td>Registered Protocol</td><td>+0.5</td><td>Pre-registered on ClinicalTrials.gov, PROSPERO, OSF</td></tr>
                         <tr class="row-positive"><td>Good Sample</td><td>+0.3</td><td>N &ge; 50</td></tr>
                         <tr class="row-negative"><td>COI Penalty</td><td>&minus;3.0</td><td>Obvious COI: funder sells tested product + all bonuses nullified</td></tr>
                         <tr class="row-negative"><td>Small Sample</td><td>&minus;0.5 / &minus;1.0</td><td>N &lt; 20 / N &lt; 10 (waived for elite athletes)</td></tr>
@@ -141,11 +141,11 @@
                     <li><strong>Null-on-Unknown:</strong> If data cannot be reliably extracted from the paper, it is left null — never invented.</li>
                     <li><strong>Quality % (ring):</strong> Percentage of the maximum achievable score for that study design (e.g. 6.5/7 = 93%). Enables fair comparison across different study types. The ring color reflects this percentage:
                         <span class="legend-chips">
-                            <span class="legend-chip chip-gold">Gold &ge; 85%</span>
-                            <span class="legend-chip chip-silver">Silver 70&ndash;84%</span>
-                            <span class="legend-chip chip-bronze">Bronze 50&ndash;69%</span>
-                            <span class="legend-chip chip-blue">Blue 30&ndash;49%</span>
-                            <span class="legend-chip chip-black">Black &lt; 30%</span>
+                            <span class="legend-chip chip-gold">Excellent &ge; 85%</span>
+                            <span class="legend-chip chip-silver">Good 70&ndash;84%</span>
+                            <span class="legend-chip chip-bronze">Fair 50&ndash;69%</span>
+                            <span class="legend-chip chip-blue">Poor 30&ndash;49%</span>
+                            <span class="legend-chip chip-black">Critical &lt; 30%</span>
                         </span>
                     </li>
                     <li><strong>Confidence (extraction reliability):</strong> How many key fields the AI successfully extracted. <span style="color:var(--green);font-weight:600">High</span> &ge; 80% &nbsp;&middot;&nbsp; <span style="color:var(--yellow);font-weight:600">Medium</span> &ge; 55% &nbsp;&middot;&nbsp; <span style="color:var(--red);font-weight:600">Low</span> &lt; 55%. Low confidence signals a hard-to-read PDF or incomplete information in the paper.</li>
