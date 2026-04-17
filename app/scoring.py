@@ -307,6 +307,31 @@ def _base_methodology_score_amstar2(
     return ratio * cap, amstar.met_count(), amstar.answered_count()
 
 
+NOS_DESIGNS = {"prospective_cohort", "cross_sectional"}
+
+
+def _base_methodology_score_nos(
+    data: ExtractedData, cap: float
+) -> tuple[float, int | None, int | None]:
+    """Score a cohort/cross-sectional study using the Newcastle-Ottawa Scale.
+
+    9 items across 3 domains (Selection 4, Comparability 2, Outcome 3).
+    Returns (score, nos_score, nos_answered).
+    """
+    if data.nos_criteria is None:
+        return cap * 0.5, None, None
+
+    nos = data.nos_criteria
+    nos_score = nos.score()
+    answered = nos.answered_count()
+
+    if answered == 0:
+        return cap * 0.5, 0, 0
+
+    ratio = nos_score / answered
+    return ratio * cap, nos_score, answered
+
+
 # ===== Adjustments =====
 
 def _sample_size_adjustment(data: ExtractedData) -> tuple[float, float, bool]:
@@ -379,6 +404,12 @@ def _build_explanation(data: ExtractedData, breakdown: ScoringBreakdown) -> str:
             f"AMSTAR-2 assessment: {breakdown.amstar2_met}/16 criteria met "
             f"({breakdown.amstar2_answered}/16 assessable). "
             "Critical criteria weighted 1.5x in score calculation."
+        )
+
+    if breakdown.nos_score is not None:
+        parts.append(
+            f"NOS assessment: {breakdown.nos_score}/9 stars "
+            f"({breakdown.nos_answered}/9 assessable)."
         )
 
     if breakdown.sample_size_adjustment != 0:
@@ -469,6 +500,8 @@ def compute_confidence(data: ExtractedData) -> ConfidenceReport:
         key_fields["pedro_criteria"] = data.pedro_criteria
     elif design in AMSTAR2_DESIGNS:
         key_fields["amstar2_criteria"] = data.amstar2_criteria
+    elif design in NOS_DESIGNS:
+        key_fields["nos_criteria"] = data.nos_criteria
 
     total = len(key_fields)
     missing = [k for k, v in key_fields.items() if v is None]
@@ -503,6 +536,8 @@ def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisR
     pedro_answered = None
     amstar2_met = None
     amstar2_answered = None
+    nos_score = None
+    nos_answered = None
     methodology_tool = "Generic"
 
     if design == "rct":
@@ -511,6 +546,9 @@ def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisR
     elif design in AMSTAR2_DESIGNS:
         base, amstar2_met, amstar2_answered = _base_methodology_score_amstar2(data, cap)
         methodology_tool = "AMSTAR-2"
+    elif design in NOS_DESIGNS:
+        base, nos_score, nos_answered = _base_methodology_score_nos(data, cap)
+        methodology_tool = "NOS"
     else:
         base = _base_methodology_score_generic(data, cap)
 
@@ -575,6 +613,8 @@ def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisR
         pedro_answered=pedro_answered,
         amstar2_met=amstar2_met,
         amstar2_answered=amstar2_answered,
+        nos_score=nos_score,
+        nos_answered=nos_answered,
         sample_size_adjustment=sample_adj,
         large_sample_bonus=large_bonus,
         elite_exception_applied=elite_exception,

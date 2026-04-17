@@ -123,6 +123,40 @@ class AMSTAR2Criteria(BaseModel):
         return sum(1 for v in self._all_criteria().values() if v is not None)
 
 
+class NOSCriteria(BaseModel):
+    """Newcastle-Ottawa Scale for cohort and cross-sectional studies. Max 9 stars."""
+
+    s1_representativeness: bool | None = Field(None, description="Representativeness of the exposed cohort or sample")
+    s2_non_exposed_selection: bool | None = Field(None, description="Selection of the non-exposed cohort or comparison group")
+    s3_exposure_ascertainment: bool | None = Field(None, description="Ascertainment of exposure or risk factor")
+    s4_outcome_not_present: bool | None = Field(None, description="Outcome of interest not present at start of study")
+    c1_primary_factor: bool | None = Field(None, description="Study controls for the most important confounding factor")
+    c2_additional_factor: bool | None = Field(None, description="Study controls for additional confounding factors")
+    o1_outcome_assessment: bool | None = Field(None, description="Assessment of outcome (independent blind assessment or record linkage)")
+    o2_followup_length: bool | None = Field(None, description="Follow-up long enough for outcomes to occur")
+    o3_followup_adequacy: bool | None = Field(None, description="Adequacy of follow-up of cohorts (low attrition or complete data)")
+
+    def _all_items(self) -> dict[str, bool | None]:
+        return {
+            "s1": self.s1_representativeness,
+            "s2": self.s2_non_exposed_selection,
+            "s3": self.s3_exposure_ascertainment,
+            "s4": self.s4_outcome_not_present,
+            "c1": self.c1_primary_factor,
+            "c2": self.c2_additional_factor,
+            "o1": self.o1_outcome_assessment,
+            "o2": self.o2_followup_length,
+            "o3": self.o3_followup_adequacy,
+        }
+
+    def score(self) -> int:
+        """Count stars (True values), max 9."""
+        return sum(1 for v in self._all_items().values() if v is True)
+
+    def answered_count(self) -> int:
+        return sum(1 for v in self._all_items().values() if v is not None)
+
+
 class ExtractedData(BaseModel):
     """Structured data extracted from a sport-science paper by the LLM."""
 
@@ -168,6 +202,9 @@ class ExtractedData(BaseModel):
     amstar2_criteria: AMSTAR2Criteria | None = Field(
         None, description="AMSTAR-2 criteria — only for meta-analysis / systematic review designs"
     )
+    nos_criteria: NOSCriteria | None = Field(
+        None, description="Newcastle-Ottawa Scale — only for prospective cohort / cross-sectional designs"
+    )
 
     statistical_methods: str | None = None
     effect_size_reported: bool | None = None
@@ -204,6 +241,8 @@ class ScoringBreakdown(BaseModel):
     pedro_answered: int | None = None
     amstar2_met: int | None = None
     amstar2_answered: int | None = None
+    nos_score: int | None = None
+    nos_answered: int | None = None
     sample_size_adjustment: float = 0.0
     large_sample_bonus: float = 0.0
     elite_exception_applied: bool = False

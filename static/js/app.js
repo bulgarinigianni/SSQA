@@ -472,6 +472,46 @@
             </div>`;
         }
 
+        // NOS HTML
+        let nosHtml = "";
+        if (e.nos_criteria && (e.study_design === "prospective_cohort" || e.study_design === "cross_sectional")) {
+            const nc = e.nos_criteria;
+            const domains = [
+                { name: "Selection", items: [
+                    { key: "S1", label: "Representativeness",  val: nc.s1_representativeness },
+                    { key: "S2", label: "Non-Exposed Selection", val: nc.s2_non_exposed_selection },
+                    { key: "S3", label: "Exposure Ascertainment", val: nc.s3_exposure_ascertainment },
+                    { key: "S4", label: "Outcome Not Present",  val: nc.s4_outcome_not_present },
+                ]},
+                { name: "Comparability", items: [
+                    { key: "C1", label: "Primary Factor",    val: nc.c1_primary_factor },
+                    { key: "C2", label: "Additional Factors", val: nc.c2_additional_factor },
+                ]},
+                { name: "Outcome", items: [
+                    { key: "O1", label: "Assessment",    val: nc.o1_outcome_assessment },
+                    { key: "O2", label: "Follow-up Length", val: nc.o2_followup_length },
+                    { key: "O3", label: "Follow-up Adequacy", val: nc.o3_followup_adequacy },
+                ]},
+            ];
+            const domainsHtml = domains.map(d => {
+                const itemsHtml = d.items.map(it => {
+                    const cls = it.val === true ? "met" : it.val === false ? "not-met" : "unknown";
+                    return `<div class="nos-item"><div class="nos-cell ${cls}" title="${it.label}">${it.key}</div><div class="nos-label">${it.label}</div></div>`;
+                }).join("");
+                return `<div class="nos-domain"><div class="nos-domain-title">${d.name}</div><div class="nos-domain-items">${itemsHtml}</div></div>`;
+            }).join("");
+
+            nosHtml = `
+            <div class="detail-section" style="grid-column: 1/-1">
+                <h4>Newcastle-Ottawa Scale (9 stars)</h4>
+                <div class="nos-grid">${domainsHtml}</div>
+                <div class="detail-row" style="margin-top:8px">
+                    <span class="label">Stars Awarded</span>
+                    <span class="value">${s.nos_score != null ? s.nos_score + "/9" : "N/A"}</span>
+                </div>
+            </div>`;
+        }
+
         // Authors
         const authors = e.authors && e.authors.length > 0
             ? e.authors.slice(0, 3).join(", ") + (e.authors.length > 3 ? ` et al.` : "")
@@ -502,7 +542,7 @@
                         ${escapeHtml(authors)} ${e.year ? `(${e.year})` : ""} ${e.journal ? `— ${escapeHtml(e.journal)}` : ""}
                     </div>
                     <span class="category-badge category-${s.category}">${s.category_label}</span>
-                    ${s.methodology_tool && s.methodology_tool !== "Generic" ? `<span class="methodology-badge">${escapeHtml(s.methodology_tool)}${s.methodology_tool === "PEDro" && s.pedro_score != null ? ": " + s.pedro_score + "/10" : ""}${s.methodology_tool === "AMSTAR-2" && s.amstar2_met != null ? ": " + s.amstar2_met + "/16" : ""}</span>` : ""}
+                    ${s.methodology_tool && s.methodology_tool !== "Generic" ? `<span class="methodology-badge">${escapeHtml(s.methodology_tool)}${s.methodology_tool === "PEDro" && s.pedro_score != null ? ": " + s.pedro_score + "/10" : ""}${s.methodology_tool === "AMSTAR-2" && s.amstar2_met != null ? ": " + s.amstar2_met + "/16" : ""}${s.methodology_tool === "NOS" && s.nos_score != null ? ": " + s.nos_score + "/9" : ""}</span>` : ""}
                 </div>
             </div>
 
@@ -565,6 +605,7 @@
 
                 ${pedroHtml}
                 ${amstarHtml}
+                ${nosHtml}
             </div>
 
             <div class="result-explanation">

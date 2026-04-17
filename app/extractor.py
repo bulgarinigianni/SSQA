@@ -80,6 +80,7 @@ Pay special attention to:
 - Population type: distinguish elite/professional athletes from recreational/students
 - For RCTs: evaluate every PEDro criterion carefully (C1-C11)
 - For systematic reviews / meta-analyses: evaluate every AMSTAR-2 criterion carefully (A1-A16)
+- For cohort / cross-sectional studies: evaluate every Newcastle-Ottawa Scale item (S1-S4, C1-C2, O1-O3)
 - Whether the study was conducted in the field (real training/match) vs laboratory
 - Whether a control or comparison group was used
 - Whether the study protocol was pre-registered (ClinicalTrials.gov, PROSPERO, OSF, etc.)
@@ -137,6 +138,17 @@ Return ONLY a JSON object matching this exact schema (use null for unknown field
     "a15_publication_bias": true_or_false_or_null,
     "a16_coi_disclosed": true_or_false_or_null
   }},
+  "nos_criteria": {{
+    "s1_representativeness": true_or_false_or_null,
+    "s2_non_exposed_selection": true_or_false_or_null,
+    "s3_exposure_ascertainment": true_or_false_or_null,
+    "s4_outcome_not_present": true_or_false_or_null,
+    "c1_primary_factor": true_or_false_or_null,
+    "c2_additional_factor": true_or_false_or_null,
+    "o1_outcome_assessment": true_or_false_or_null,
+    "o2_followup_length": true_or_false_or_null,
+    "o3_followup_adequacy": true_or_false_or_null
+  }},
   "statistical_methods": "string or null",
   "effect_size_reported": true_or_false_or_null,
   "confidence_intervals_reported": true_or_false_or_null,
@@ -150,6 +162,7 @@ Return ONLY a JSON object matching this exact schema (use null for unknown field
 IMPORTANT:
 - pedro_criteria should ONLY be filled in if study_design is "rct". For all other designs, set pedro_criteria to null.
 - amstar2_criteria should ONLY be filled in if study_design is "meta_analysis" or "systematic_review". For all other designs, set amstar2_criteria to null. Pay careful attention to critical items (A2, A4, A7, A9, A11, A13, A15) — these carry extra weight in scoring.
+- nos_criteria should ONLY be filled in if study_design is "prospective_cohort" or "cross_sectional". For all other designs, set nos_criteria to null. NOS uses 3 domains: Selection (S1-S4), Comparability (C1-C2), Outcome (O1-O3). Each item earns 1 star if met.
 - funder_sells_product is CRITICAL. Examine funding disclosures, COI statements, and author affiliations very carefully.
 - coi_severity: use "obvious" ONLY when the evidence is undeniable (e.g. company X funds study AND company X sells the exact product being tested). If it is merely suspicious or indirect, use "ambiguous". Do NOT inflate — false COI flags damage good research.
 - For population_type, "elite" means national team / Olympic / international level; "professional" means paid professional athletes; distinguish from "university_students" or "recreational".
