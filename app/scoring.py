@@ -332,6 +332,30 @@ def _base_methodology_score_nos(
     return ratio * cap, nos_score, answered
 
 
+def _base_methodology_score_grade(
+    data: ExtractedData, cap: float
+) -> tuple[float, int | None, int | None]:
+    """Score a consensus statement using GRADE-inspired criteria.
+
+    8 items covering systematic search, evidence grading, consensus method,
+    panel composition, COI management, recommendation strength, evidence gaps,
+    and external review.
+    Returns (score, met_count, answered_count).
+    """
+    if data.grade_criteria is None:
+        return cap * 0.5, None, None
+
+    grade = data.grade_criteria
+    met = grade.score()
+    answered = grade.answered_count()
+
+    if answered == 0:
+        return cap * 0.5, 0, 0
+
+    ratio = met / answered
+    return ratio * cap, met, answered
+
+
 # ===== Adjustments =====
 
 def _sample_size_adjustment(data: ExtractedData) -> tuple[float, float, bool]:
@@ -410,6 +434,12 @@ def _build_explanation(data: ExtractedData, breakdown: ScoringBreakdown) -> str:
         parts.append(
             f"NOS assessment: {breakdown.nos_score}/9 stars "
             f"({breakdown.nos_answered}/9 assessable)."
+        )
+
+    if breakdown.grade_met is not None:
+        parts.append(
+            f"GRADE consensus quality: {breakdown.grade_met}/8 criteria met "
+            f"({breakdown.grade_answered}/8 assessable)."
         )
 
     if breakdown.sample_size_adjustment != 0:
@@ -502,6 +532,8 @@ def compute_confidence(data: ExtractedData) -> ConfidenceReport:
         key_fields["amstar2_criteria"] = data.amstar2_criteria
     elif design in NOS_DESIGNS:
         key_fields["nos_criteria"] = data.nos_criteria
+    elif design == "consensus_statement":
+        key_fields["grade_criteria"] = data.grade_criteria
 
     total = len(key_fields)
     missing = [k for k, v in key_fields.items() if v is None]
@@ -538,6 +570,8 @@ def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisR
     amstar2_answered = None
     nos_score = None
     nos_answered = None
+    grade_met = None
+    grade_answered = None
     methodology_tool = "Generic"
 
     if design == "rct":
@@ -549,6 +583,9 @@ def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisR
     elif design in NOS_DESIGNS:
         base, nos_score, nos_answered = _base_methodology_score_nos(data, cap)
         methodology_tool = "NOS"
+    elif design == "consensus_statement":
+        base, grade_met, grade_answered = _base_methodology_score_grade(data, cap)
+        methodology_tool = "GRADE"
     else:
         base = _base_methodology_score_generic(data, cap)
 
@@ -615,6 +652,8 @@ def score_paper(data: ExtractedData, filename: str = "unknown.pdf") -> AnalysisR
         amstar2_answered=amstar2_answered,
         nos_score=nos_score,
         nos_answered=nos_answered,
+        grade_met=grade_met,
+        grade_answered=grade_answered,
         sample_size_adjustment=sample_adj,
         large_sample_bonus=large_bonus,
         elite_exception_applied=elite_exception,

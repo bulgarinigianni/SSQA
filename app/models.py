@@ -157,6 +157,38 @@ class NOSCriteria(BaseModel):
         return sum(1 for v in self._all_items().values() if v is not None)
 
 
+class GRADECriteria(BaseModel):
+    """GRADE-inspired consensus quality assessment. 8 items for consensus statements."""
+
+    g1_systematic_search: bool | None = Field(None, description="Systematic literature search was conducted")
+    g2_evidence_graded: bool | None = Field(None, description="Evidence quality was formally assessed or graded (e.g. GRADE levels)")
+    g3_consensus_method: bool | None = Field(None, description="Structured consensus method used (Delphi, nominal group, voting)")
+    g4_panel_composition: bool | None = Field(None, description="Panel was multidisciplinary and/or international")
+    g5_coi_management: bool | None = Field(None, description="Conflicts of interest were disclosed and managed")
+    g6_recommendation_strength: bool | None = Field(None, description="Recommendation strengths clearly stated (e.g. strong/conditional)")
+    g7_evidence_gaps: bool | None = Field(None, description="Limitations and evidence gaps acknowledged")
+    g8_external_review: bool | None = Field(None, description="External peer review or public consultation was conducted")
+
+    def _all_items(self) -> dict[str, bool | None]:
+        return {
+            "g1": self.g1_systematic_search,
+            "g2": self.g2_evidence_graded,
+            "g3": self.g3_consensus_method,
+            "g4": self.g4_panel_composition,
+            "g5": self.g5_coi_management,
+            "g6": self.g6_recommendation_strength,
+            "g7": self.g7_evidence_gaps,
+            "g8": self.g8_external_review,
+        }
+
+    def score(self) -> int:
+        """Count met items (True values), max 8."""
+        return sum(1 for v in self._all_items().values() if v is True)
+
+    def answered_count(self) -> int:
+        return sum(1 for v in self._all_items().values() if v is not None)
+
+
 class ExtractedData(BaseModel):
     """Structured data extracted from a sport-science paper by the LLM."""
 
@@ -205,6 +237,9 @@ class ExtractedData(BaseModel):
     nos_criteria: NOSCriteria | None = Field(
         None, description="Newcastle-Ottawa Scale — only for prospective cohort / cross-sectional designs"
     )
+    grade_criteria: GRADECriteria | None = Field(
+        None, description="GRADE consensus quality — only for consensus statement designs"
+    )
 
     statistical_methods: str | None = None
     effect_size_reported: bool | None = None
@@ -243,6 +278,8 @@ class ScoringBreakdown(BaseModel):
     amstar2_answered: int | None = None
     nos_score: int | None = None
     nos_answered: int | None = None
+    grade_met: int | None = None
+    grade_answered: int | None = None
     sample_size_adjustment: float = 0.0
     large_sample_bonus: float = 0.0
     elite_exception_applied: bool = False

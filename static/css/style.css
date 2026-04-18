@@ -826,6 +826,45 @@ body {
     word-break: break-word;
 }
 
+/* -- GRADE Grid (4x2) -- */
+.grade-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.grade-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.grade-cell {
+    width: 100%;
+    aspect-ratio: 1.4;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+}
+
+.grade-cell.met { background: var(--green-bg); color: var(--green); border-color: #a7f3d0; }
+.grade-cell.not-met { background: var(--red-bg); color: var(--red); border-color: #fca5a5; }
+.grade-cell.unknown { background: var(--bg); color: var(--text-secondary); }
+
+.grade-label {
+    font-size: 9px;
+    color: var(--text-secondary);
+    text-align: center;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
 /* -- Methodology Tool Badge -- */
 .methodology-badge {
     display: inline-block;

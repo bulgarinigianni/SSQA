@@ -81,6 +81,7 @@ Pay special attention to:
 - For RCTs: evaluate every PEDro criterion carefully (C1-C11)
 - For systematic reviews / meta-analyses: evaluate every AMSTAR-2 criterion carefully (A1-A16)
 - For cohort / cross-sectional studies: evaluate every Newcastle-Ottawa Scale item (S1-S4, C1-C2, O1-O3)
+- For consensus statements: evaluate GRADE consensus quality criteria (G1-G8)
 - Whether the study was conducted in the field (real training/match) vs laboratory
 - Whether a control or comparison group was used
 - Whether the study protocol was pre-registered (ClinicalTrials.gov, PROSPERO, OSF, etc.)
@@ -149,6 +150,16 @@ Return ONLY a JSON object matching this exact schema (use null for unknown field
     "o2_followup_length": true_or_false_or_null,
     "o3_followup_adequacy": true_or_false_or_null
   }},
+  "grade_criteria": {{
+    "g1_systematic_search": true_or_false_or_null,
+    "g2_evidence_graded": true_or_false_or_null,
+    "g3_consensus_method": true_or_false_or_null,
+    "g4_panel_composition": true_or_false_or_null,
+    "g5_coi_management": true_or_false_or_null,
+    "g6_recommendation_strength": true_or_false_or_null,
+    "g7_evidence_gaps": true_or_false_or_null,
+    "g8_external_review": true_or_false_or_null
+  }},
   "statistical_methods": "string or null",
   "effect_size_reported": true_or_false_or_null,
   "confidence_intervals_reported": true_or_false_or_null,
@@ -163,6 +174,7 @@ IMPORTANT:
 - pedro_criteria should ONLY be filled in if study_design is "rct". For all other designs, set pedro_criteria to null.
 - amstar2_criteria should ONLY be filled in if study_design is "meta_analysis" or "systematic_review". For all other designs, set amstar2_criteria to null. Pay careful attention to critical items (A2, A4, A7, A9, A11, A13, A15) — these carry extra weight in scoring.
 - nos_criteria should ONLY be filled in if study_design is "prospective_cohort" or "cross_sectional". For all other designs, set nos_criteria to null. NOS uses 3 domains: Selection (S1-S4), Comparability (C1-C2), Outcome (O1-O3). Each item earns 1 star if met.
+- grade_criteria should ONLY be filled in if study_design is "consensus_statement". For all other designs, set grade_criteria to null. Assess the consensus process quality: was evidence systematically searched, was it graded, was a formal consensus method used (Delphi, nominal group, voting), was the panel multidisciplinary, were COI managed, were recommendation strengths stated, were evidence gaps acknowledged, was external review conducted.
 - funder_sells_product is CRITICAL. Examine funding disclosures, COI statements, and author affiliations very carefully.
 - coi_severity: use "obvious" ONLY when the evidence is undeniable (e.g. company X funds study AND company X sells the exact product being tested). If it is merely suspicious or indirect, use "ambiguous". Do NOT inflate — false COI flags damage good research.
 - For population_type, "elite" means national team / Olympic / international level; "professional" means paid professional athletes; distinguish from "university_students" or "recreational".
