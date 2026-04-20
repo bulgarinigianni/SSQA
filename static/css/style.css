@@ -872,9 +872,9 @@ body {
     border-radius: 12px;
     font-size: 11px;
     font-weight: 600;
-    background: #f0f5ff;
-    color: var(--accent);
-    border: 1px solid #bfdbfe;
+    background: #f5f3ff;
+    color: #7c3aed;
+    border: 1px solid #ddd6fe;
     margin-left: 8px;
     letter-spacing: 0.3px;
 }
