@@ -396,7 +396,7 @@ async def extract_paper_data(
             {"role": "user", "parts": [{"text": prompt}]},
         ],
         "generationConfig": {
-            "temperature": 0.2,
+            "temperature": 0,
             "maxOutputTokens": 8192,
             "responseMimeType": "application/json",
         },
