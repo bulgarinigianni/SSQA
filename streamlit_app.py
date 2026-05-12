@@ -609,11 +609,21 @@ with st.expander("Scoring Parameters Reference"):
 
     st.markdown("##### Methodology Assessment Tools")
     st.markdown("""
-| Tool | Applies To | Scoring |
-|---|---|---|
-| **PEDro** | RCTs | Sum of C2-C11 (max 10), ratio x cap |
-| **AMSTAR-2** | SR & Meta-Analyses | Weighted: critical x1.5, ratio x cap |
-| **NOS** | Cohort & Cross-Sectional | Stars / assessable, ratio x cap |
-| **GRADE** | Consensus Statements | Met / assessable, ratio x cap |
-| **Generic** | All other designs | Starts at 60% cap, adjusted |
+| Tool | Applies To | Criteria | Scoring Method |
+|---|---|---|---|
+| **PEDro** | RCTs | 11 items (C1 descriptive, C2-C11 scored) | Simple sum of C2-C11 (max 10), ratio × design cap |
+| **AMSTAR-2** | Systematic Reviews & Meta-Analyses | 16 items (7 critical: A2, A4, A7, A9, A11, A13, A15) | Weighted sum: critical items ×1.5, others ×1.0, ratio × design cap |
+| **NOS** | Prospective Cohort & Cross-Sectional | 9 items: Selection (S1-S4), Comparability (C1-C2), Outcome (O1-O3) | Stars earned / stars assessable, ratio × design cap |
+| **GRADE** | Consensus Statements | 8 items: search, grading, method, panel, COI, strength, gaps, review | Criteria met / criteria assessable, ratio × design cap |
+| **Generic** | All other designs | Sample size, effect sizes, CIs, statistical methods | Starts at 60% of cap, adjusted by methodology signals |
+""")
+
+    st.markdown("##### Special Rules")
+    st.markdown("""
+- **Elite Athlete Exception:** Small sample penalty waived when population is elite/professional (e.g., N=15 national team players).
+- **COI Filter:** Applied only when COI is *obvious* (funder undeniably sells the product tested). Ambiguous COI is flagged but not penalized.
+- **BLACK FLAG:** Reserved exclusively for predatory journals. COI does not trigger BLACK FLAG.
+- **Null-on-Unknown:** If data cannot be reliably extracted from the paper, it is left null — never invented.
+- **Quality % (ring):** Percentage of the maximum achievable score for that study design (e.g. 6.5/7 = 93%). Enables fair comparison across different study types. The color reflects this percentage: **Excellent** ≥ 85% · **Good** 70–84% · **Fair** 50–69% · **Poor** 30–49% · **Critical** < 30%.
+- **Confidence (extraction reliability):** How many key fields the AI successfully extracted. **High** ≥ 80% · **Medium** ≥ 55% · **Low** < 55%. Low confidence signals a hard-to-read PDF or incomplete information in the paper.
 """)
