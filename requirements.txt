@@ -1,9 +1,6 @@
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-python-multipart==0.0.20
-httpx==0.28.1
-PyMuPDF==1.25.3
-pydantic==2.10.4
-pydantic-settings==2.7.1
-python-dotenv==1.0.1
+httpx>=0.28
+PyMuPDF>=1.25
+pydantic>=2.11
+pydantic-settings>=2.8
+python-dotenv>=1.0
 streamlit>=1.40.0
