@@ -4,3 +4,4 @@ pydantic>=2.11
 pydantic-settings>=2.8
 python-dotenv>=1.0
 streamlit>=1.40.0
+streamlit-js-eval>=0.1.7

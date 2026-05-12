@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import math
 import tempfile
 from pathlib import Path
 
 import streamlit as st
+from streamlit_js_eval import streamlit_js_eval
 
 from app.config import settings
 from app.extractor import InvalidAPIKeyError, QuotaExhaustedError, extract_paper_data
@@ -114,6 +116,28 @@ details[data-testid="stExpander"] summary {{
 [data-testid="stHtml"] {{ font-family: var(--font); color: var(--text); }}
 </style>
 """, unsafe_allow_html=True)
+
+
+# ── Persistent API key via browser localStorage ──────────────────────────
+# On first load, read the saved key from the user's browser.
+# streamlit_js_eval returns None on the very first render (needs a round-trip),
+# then returns the actual value on the next render cycle.
+if "api_key" not in st.session_state:
+    stored = streamlit_js_eval(
+        js_expressions='localStorage.getItem("gemini_api_key") || ""',
+        key="load_api_key",
+    )
+    if stored:
+        st.session_state["api_key"] = stored
+
+
+def _save_key_to_browser(key: str):
+    """Persist key to browser localStorage so it survives refresh/reconnect."""
+    safe = json.dumps(key)
+    streamlit_js_eval(
+        js_expressions=f"localStorage.setItem('gemini_api_key', {safe})",
+        key="save_api_key",
+    )
 
 
 # ── Async helper ──────────────────────────────────────────────────────────
@@ -551,17 +575,23 @@ with st.sidebar:
         placeholder="AIzaSy...",
     )
     if key_input:
-        st.session_state["api_key"] = key_input.strip()
+        new_key = key_input.strip()
+        if new_key != st.session_state.get("api_key", ""):
+            st.session_state["api_key"] = new_key
+            _save_key_to_browser(new_key)
     elif not st.session_state.get("api_key") and settings.gemini_api_key:
         st.session_state["api_key"] = settings.gemini_api_key
 
     key_set = bool(st.session_state.get("api_key"))
     dot_color = "#059669" if key_set else "#dc2626"
-    key_text = "Configurata" if key_set else "Mancante"
+    key_text = "Salvata nel browser ✓" if key_set else "Mancante"
     st.html(f"""
     <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:4px">
       <div style="width:7px;height:7px;border-radius:50%;background:{dot_color}"></div>
       {key_text}
+    </div>
+    <div style="font-size:10px;color:var(--text-secondary);margin-bottom:6px">
+      La chiave viene salvata nel tuo browser (localStorage) — non viene condivisa con altri utenti.
     </div>
     <a href="https://aistudio.google.com/apikey" target="_blank"
        style="font-size:11px;color:var(--accent);text-decoration:none">
