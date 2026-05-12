@@ -1,9 +1,9 @@
-"""Sport Science Quality Analyzer — Streamlit UI."""
+"""Sport Science Quality Analyzer — Streamlit UI v2."""
 
 from __future__ import annotations
 
 import asyncio
-import os
+import math
 import tempfile
 from pathlib import Path
 
@@ -15,136 +15,109 @@ from app.models import AnalysisResult, ConfidenceReport, ExtractedData, ScoringB
 from app.pdf_parser import extract_text
 from app.scoring import score_paper
 
-# ---------------------------------------------------------------------------
-# Page config
-# ---------------------------------------------------------------------------
+# ── Page config ────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="SSQA — Sport Science Quality Analyzer",
     page_icon="🏋️",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-# ---------------------------------------------------------------------------
-# Custom CSS
-# ---------------------------------------------------------------------------
-st.markdown("""
+# ── Inject V2 CSS + hide Streamlit chrome ─────────────────────────────────
+_V2_CSS = Path("static/css/v2.css").read_text()
+
+st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+{_V2_CSS}
 
-.main .block-container { max-width: 1100px; padding-top: 2rem; }
+/* Hide Streamlit chrome */
+#MainMenu, footer {{ visibility: hidden; }}
+[data-testid="stHeader"] {{ display: none !important; }}
+[data-testid="stToolbar"] {{ display: none !important; }}
+.stDeployButton {{ display: none !important; }}
+div[data-testid="stDecoration"] {{ display: none !important; }}
 
-/* Category badges */
-.cat-badge {
-    display: inline-block; padding: 4px 14px; border-radius: 20px;
-    font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
-}
-.cat-gold       { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
-.cat-practical  { background: #e5e7eb; color: #374151; border: 1px solid #d1d5db; }
-.cat-exploratory{ background: #fef9c3; color: #854d0e; border: 1px solid #fde68a; }
-.cat-weak       { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
-.cat-black      { background: #1f2937; color: #f87171; border: 1px solid #374151; }
-.cat-error      { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+/* Main padding */
+.block-container {{
+    padding-top: 0 !important;
+    padding-bottom: 2rem !important;
+    max-width: 1100px;
+}}
 
-/* Methodology badge */
-.meth-badge {
-    display: inline-block; padding: 3px 10px; border-radius: 12px;
-    font-size: 11px; font-weight: 600;
-    background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe;
-}
+/* Sidebar */
+[data-testid="stSidebar"] > div:first-child {{
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding-top: 0 !important;
+}}
 
-/* Score ring (pure CSS) */
-.score-ring-container {
-    display: flex; align-items: center; justify-content: center;
-}
+/* Streamlit buttons → V2 style */
+.stButton > button[kind="primary"] {{
+    background: var(--accent) !important; color: white !important;
+    border: none !important; border-radius: 6px !important;
+    font-weight: 500 !important; font-family: var(--font) !important;
+    padding: 10px 20px !important;
+}}
+.stButton > button {{
+    border-radius: 6px !important; font-weight: 500 !important;
+    font-family: var(--font) !important;
+}}
 
-/* Criteria grid */
-.criteria-grid {
-    display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0;
-}
-.criteria-cell {
-    display: flex; flex-direction: column; align-items: center;
-    min-width: 60px; padding: 4px 6px; border-radius: 6px;
-    font-size: 11px; text-align: center;
-}
-.criteria-cell .key { font-weight: 700; font-size: 12px; font-family: 'JetBrains Mono', monospace; }
-.criteria-cell .lbl { font-size: 9px; color: #6b7280; margin-top: 2px; }
-.cell-met     { background: #d1fae5; color: #065f46; }
-.cell-not-met { background: #fee2e2; color: #991b1b; }
-.cell-unknown { background: #f3f4f6; color: #9ca3af; }
-.cell-critical { border: 2px solid #7c3aed; }
+/* File uploader */
+[data-testid="stFileUploader"] section {{
+    border: 2px dashed var(--border) !important;
+    border-radius: var(--radius) !important;
+    background: var(--surface) !important;
+    padding: 40px 24px !important;
+    text-align: center;
+    transition: all 0.2s;
+}}
+[data-testid="stFileUploader"] section:hover {{
+    border-color: var(--accent) !important;
+    background: #f0f5ff !important;
+}}
 
-/* Detail rows */
-.detail-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; border-bottom: 1px solid #f3f4f6; }
-.detail-label { color: #6b7280; }
-.detail-value { font-weight: 600; }
-.val-pos { color: #059669; }
-.val-neg { color: #ef4444; }
+/* Tabs */
+[data-testid="stTabs"] [role="tab"] {{
+    font-family: var(--font) !important; font-size: 13px !important;
+    font-weight: 500 !important; color: var(--text-secondary) !important;
+    padding: 12px 18px !important;
+}}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] {{
+    color: var(--accent) !important;
+}}
+[data-testid="stTabs"] [data-baseweb="tab-highlight"] {{
+    background-color: var(--accent) !important;
+}}
+[data-testid="stTabs"] [data-baseweb="tab-border"] {{
+    background-color: var(--border) !important;
+}}
+
+/* Progress */
+.stProgress > div > div > div > div {{
+    background-color: var(--accent) !important; border-radius: 3px !important;
+}}
+
+/* Expander */
+details[data-testid="stExpander"] {{
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+    background: var(--surface) !important;
+    margin-bottom: 8px;
+}}
+details[data-testid="stExpander"] summary {{
+    font-family: var(--font) !important; font-weight: 500 !important;
+    font-size: 14px !important; padding: 12px 18px !important;
+}}
+
+/* st.html wrapper */
+[data-testid="stHtml"] {{ font-family: var(--font); color: var(--text); }}
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------------------------
-# Header
-# ---------------------------------------------------------------------------
-st.markdown("# Sport Science Quality Analyzer")
-st.caption("AI-powered audit tool for sport-science research quality assessment — v1.0")
 
-# ---------------------------------------------------------------------------
-# API Key
-# ---------------------------------------------------------------------------
-with st.expander("Gemini API Key (required)", expanded=not bool(st.session_state.get("api_key"))):
-    st.markdown(
-        "Enter your Gemini API key to enable paper analysis. "
-        "Stored only in this session, never persisted. "
-        "[Get a free key](https://aistudio.google.com/apikey)"
-    )
-    key_input = st.text_input(
-        "API Key", type="password",
-        value=st.session_state.get("api_key", ""),
-        label_visibility="collapsed",
-        placeholder="Paste your Gemini API key here",
-    )
-    if key_input:
-        st.session_state["api_key"] = key_input.strip()
-        st.success("Key active")
-    elif st.session_state.get("api_key"):
-        pass
-    else:
-        server_key = settings.gemini_api_key
-        if server_key:
-            st.info("Using server-configured key")
-        else:
-            st.warning("No key configured — analysis will fail")
-
-
-def _resolve_key() -> str:
-    key = st.session_state.get("api_key", "").strip() or settings.gemini_api_key
-    if not key:
-        st.error("No Gemini API key. Paste one above before analyzing.")
-        st.stop()
-    return key
-
-
-# ---------------------------------------------------------------------------
-# Upload
-# ---------------------------------------------------------------------------
-st.markdown("## Upload Research Papers")
-st.markdown("Upload one or more PDF files for quality assessment (max 10).")
-
-uploaded = st.file_uploader(
-    "Upload PDFs", type=["pdf"], accept_multiple_files=True,
-    label_visibility="collapsed",
-)
-
-if uploaded and len(uploaded) > 10:
-    st.warning("Maximum 10 files — only the first 10 will be analyzed.")
-    uploaded = uploaded[:10]
-
-# ---------------------------------------------------------------------------
-# Analysis pipeline
-# ---------------------------------------------------------------------------
-
+# ── Async helper ──────────────────────────────────────────────────────────
 def _run_async(coro):
-    """Run an async coroutine from sync Streamlit context."""
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(coro)
@@ -152,6 +125,7 @@ def _run_async(coro):
         loop.close()
 
 
+# ── Analysis pipeline ─────────────────────────────────────────────────────
 def _analyze_one(pdf_bytes: bytes, filename: str, api_key: str) -> AnalysisResult:
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
         tmp.write(pdf_bytes)
@@ -168,10 +142,9 @@ def _analyze_one(pdf_bytes: bytes, filename: str, api_key: str) -> AnalysisResul
             extracted=ExtractedData(),
             scoring=ScoringBreakdown(
                 design_category="other", design_cap=0,
-                base_methodology_score=0, raw_score=0,
-                final_score=0, category="error",
-                category_label="ERROR",
-                explanation=f"Analysis failed: {exc}",
+                base_methodology_score=0, raw_score=0, final_score=0,
+                category="error", category_label="ERROR",
+                explanation=f"Analisi fallita: {exc}",
             ),
             confidence=ConfidenceReport(
                 total_fields=0, extracted_fields=0,
@@ -183,447 +156,624 @@ def _analyze_one(pdf_bytes: bytes, filename: str, api_key: str) -> AnalysisResul
         tmp_path.unlink(missing_ok=True)
 
 
-# ---------------------------------------------------------------------------
-# Analyze button
-# ---------------------------------------------------------------------------
-if uploaded:
-    if st.button("Analyze Papers", type="primary", use_container_width=True):
-        api_key = _resolve_key()
-        results: list[AnalysisResult] = []
-        progress = st.progress(0, text="Starting analysis...")
-
-        for i, f in enumerate(uploaded):
-            progress.progress(
-                (i) / len(uploaded),
-                text=f"Analyzing {f.name} ({i+1}/{len(uploaded)})...",
-            )
-            try:
-                r = _analyze_one(f.read(), f.name, api_key)
-                results.append(r)
-            except QuotaExhaustedError:
-                st.error(
-                    "Gemini API quota exhausted. Try again later or use a different key."
-                )
-                break
-            except InvalidAPIKeyError:
-                st.error(
-                    "Invalid Gemini API key. Verify it at https://aistudio.google.com/apikey"
-                )
-                break
-
-        progress.progress(1.0, text="Done!")
-        st.session_state["results"] = results
-
-# ---------------------------------------------------------------------------
-# Helper functions for rendering
-# ---------------------------------------------------------------------------
-DESIGN_LABELS = {
-    "meta_analysis": "Meta-Analysis", "systematic_review": "Systematic Review",
-    "rct": "RCT", "consensus_statement": "Consensus Statement",
-    "prospective_cohort": "Prospective Cohort", "cross_sectional": "Cross-Sectional",
-    "case_series": "Case Series", "case_study": "Case Study",
-    "narrative_review": "Narrative Review", "expert_opinion": "Expert Opinion",
-    "other": "Other",
-}
-
-POP_LABELS = {
-    "elite": "Elite Athletes", "professional": "Professional Athletes",
-    "sub_elite": "Sub-Elite", "amateur": "Amateur", "recreational": "Recreational",
-    "university_students": "University Students", "youth_academy": "Youth Academy",
-    "general_population": "General Population", "mixed": "Mixed", "other": "Other",
-}
-
-CTX_LABELS = {"field": "Field", "laboratory": "Laboratory", "mixed": "Mixed", "unclear": "Unclear"}
+def _resolve_key() -> str:
+    key = st.session_state.get("api_key", "").strip() or settings.gemini_api_key
+    if not key:
+        st.error("Nessuna API key Gemini. Inseriscila nella sidebar prima di procedere.")
+        st.stop()
+    return key
 
 
-def _cat_badge(category: str, label: str) -> str:
-    cls_map = {
-        "gold_standard": "cat-gold", "practical_evidence": "cat-practical",
-        "exploratory": "cat-exploratory", "weak": "cat-weak",
-        "black_flag": "cat-black", "error": "cat-error",
-    }
-    cls = cls_map.get(category, "cat-weak")
-    return f'<span class="cat-badge {cls}">{label}</span>'
+# ── V2 HTML helpers ───────────────────────────────────────────────────────
+
+def _ring_html(pct: int, size: int = 100, stroke: int = 6) -> str:
+    r = (size - stroke) / 2
+    c = 2 * math.pi * r
+    off = c * (1 - pct / 100)
+    if pct >= 85:   color = "#ca8a04"
+    elif pct >= 70: color = "#475569"
+    elif pct >= 50: color = "#9a3412"
+    elif pct >= 30: color = "#2563eb"
+    else:           color = "#111827"
+    return (
+        f'<div style="width:{size}px;height:{size}px;position:relative;flex-shrink:0">'
+        f'<svg width="{size}" height="{size}">'
+        f'<circle cx="{size/2}" cy="{size/2}" r="{r:.1f}" fill="none" stroke="#e2e5ea" stroke-width="{stroke}"/>'
+        f'<circle cx="{size/2}" cy="{size/2}" r="{r:.1f}" fill="none" stroke="{color}" stroke-width="{stroke}"'
+        f' stroke-dasharray="{c:.2f}" stroke-dashoffset="{off:.2f}" stroke-linecap="round"'
+        f' transform="rotate(-90 {size/2} {size/2})"/>'
+        f'</svg>'
+        f'<div style="position:absolute;inset:0;display:grid;place-items:center;'
+        f'font-family:\'JetBrains Mono\',monospace;font-weight:700;font-size:{int(size*0.22)}px;color:{color}">'
+        f'{pct}%</div>'
+        f'</div>'
+    )
 
 
-def _meth_badge(tool: str, s) -> str:
-    if tool == "Generic":
-        return ""
-    extra = ""
-    if tool == "PEDro" and s.pedro_score is not None:
-        extra = f": {s.pedro_score}/10"
-    elif tool == "AMSTAR-2" and s.amstar2_met is not None:
-        extra = f": {s.amstar2_met}/16"
-    elif tool == "NOS" and s.nos_score is not None:
-        extra = f": {s.nos_score}/9"
-    elif tool == "GRADE" and s.grade_met is not None:
-        extra = f": {s.grade_met}/8"
-    return f'<span class="meth-badge">{tool}{extra}</span>'
+def _badge(category: str, label: str) -> str:
+    return f'<span class="cat-badge cat-{category}">{label}</span>'
 
 
-def _norm_color(pct: float) -> str:
-    if pct >= 85: return "#d97706"
-    if pct >= 70: return "#6b7280"
-    if pct >= 50: return "#b45309"
-    if pct >= 30: return "#2563eb"
-    return "#1f2937"
+def _crit(code: str, ok) -> str:
+    if ok is True:   cls, sym = "ok", "✓"
+    elif ok is False: cls, sym = "no", "✗"
+    else:             cls, sym = "unknown", "·"
+    return f'<div class="crit {cls}"><span>{sym}</span><span>{code}</span></div>'
 
 
-def _criteria_html(key: str, label: str, val, critical: bool = False) -> str:
-    if val is True:
-        cls = "cell-met"
-    elif val is False:
-        cls = "cell-not-met"
-    else:
-        cls = "cell-unknown"
-    crit = " cell-critical" if critical else ""
-    return f'<div class="criteria-cell {cls}{crit}"><span class="key">{key}</span><span class="lbl">{label}</span></div>'
+def _banner(tone: str, icon: str, text: str, mod: str = "") -> str:
+    mod_html = f'<span class="banner-mod">{mod}</span>' if mod else ""
+    return (
+        f'<div class="banner {tone}">'
+        f'<div class="banner-icon">{icon}</div>'
+        f'<div style="flex:1">{text}</div>'
+        f'{mod_html}'
+        f'</div>'
+    )
 
 
-# ---------------------------------------------------------------------------
-# Render results
-# ---------------------------------------------------------------------------
-if "results" in st.session_state and st.session_state["results"]:
-    results: list[AnalysisResult] = st.session_state["results"]
+def _brk(label: str, val: str, note: str = "", bar: int | None = None, muted: bool = False) -> str:
+    cls = "brk-row muted-row" if muted else "brk-row"
+    bar_html = f'<span class="bar"><i style="width:{min(bar, 100)}%"></i></span>' if bar is not None else ""
+    note_html = f'<span class="note">{note}</span>' if note else ""
+    return f'<div class="{cls}"><span class="lbl">{label}</span>{bar_html}{note_html}<span class="val">{val}</span></div>'
 
-    st.markdown("---")
-    st.markdown("## Results")
 
-    # Batch summary table
-    if len(results) > 1:
-        import pandas as pd
-        rows = []
-        for r in results:
-            s = r.scoring
-            e = r.extracted
-            flags = ""
-            if s.coi_detected:
-                flags = "COI"
-            elif s.predatory_journal_detected:
-                flags = "PRED"
-            else:
-                flags = "OK"
-            rows.append({
-                "File": r.filename,
-                "Score": f"{s.final_score:.1f}/{s.design_cap}",
-                "Quality %": f"{s.normalized_score:.0f}%",
-                "Category": s.category_label,
-                "Design": DESIGN_LABELS.get(e.study_design or "", e.study_design or "—"),
-                "N": e.sample_size if e.sample_size is not None else "—",
-                "Flags": flags,
-                "Confidence": f"{r.confidence.confidence_pct:.0f}%",
-            })
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-        st.markdown("")
+def _methodology_html(ed: ExtractedData, sc: ScoringBreakdown) -> str:
+    tool = sc.methodology_tool
 
-    # Detail cards
-    for idx, r in enumerate(results):
-        s = r.scoring
-        e = r.extracted
-        c = r.confidence
+    if tool == "PEDro" and ed.pedro_criteria:
+        p = ed.pedro_criteria
+        crits = [
+            ("C1", p.c1_eligibility_specified), ("C2", p.c2_random_allocation),
+            ("C3", p.c3_concealed_allocation), ("C4", p.c4_baseline_comparable),
+            ("C5", p.c5_blinding_subjects), ("C6", p.c6_blinding_therapists),
+            ("C7", p.c7_blinding_assessors), ("C8", p.c8_adequate_followup),
+            ("C9", p.c9_intention_to_treat), ("C10", p.c10_between_group),
+            ("C11", p.c11_point_variability),
+        ]
+        score = sc.pedro_score if sc.pedro_score is not None else sum(1 for _, v in crits[1:] if v is True)
+        bar = round(score / 10 * 100)
+        pills = "".join(_crit(k, v) for k, v in crits)
+        return (
+            f'<div class="card">'
+            f'<div class="row between" style="margin-bottom:10px">'
+            f'<div><span style="font-size:16px;font-weight:600">🔬 PEDro</span>'
+            f'<span class="muted" style="margin-left:8px;font-size:13px">scala 0–10</span></div>'
+            f'<div style="font-family:JetBrains Mono,monospace;font-size:20px;font-weight:700">'
+            f'{score}<span class="muted" style="font-size:14px"> / 10</span></div></div>'
+            f'<div style="height:6px;background:#e2e5ea;border-radius:3px;overflow:hidden;margin-bottom:4px">'
+            f'<div style="width:{bar}%;height:100%;background:#475569"></div></div>'
+            f'<div class="crit-grid">{pills}</div>'
+            f'</div>'
+        )
+
+    if tool == "AMSTAR-2" and ed.amstar2_criteria:
+        a = ed.amstar2_criteria
+        crits = [
+            ("A1", a.a1_pico), ("A2", a.a2_protocol_registered),
+            ("A3", a.a3_study_design_explained), ("A4", a.a4_comprehensive_search),
+            ("A5", a.a5_duplicate_selection), ("A6", a.a6_duplicate_extraction),
+            ("A7", a.a7_excluded_studies_listed), ("A8", a.a8_studies_described),
+            ("A9", a.a9_risk_of_bias_assessed), ("A10", a.a10_funding_reported),
+            ("A11", a.a11_statistical_methods), ("A12", a.a12_rob_impact_assessed),
+            ("A13", a.a13_rob_in_interpretation), ("A14", a.a14_heterogeneity_discussed),
+            ("A15", a.a15_publication_bias), ("A16", a.a16_coi_disclosed),
+        ]
+        met = sc.amstar2_met if sc.amstar2_met is not None else sum(1 for _, v in crits if v is True)
+        bar = round(met / 16 * 100)
+        pills = "".join(_crit(k, v) for k, v in crits)
+        return (
+            f'<div class="card">'
+            f'<div class="row between" style="margin-bottom:10px">'
+            f'<div><span style="font-size:16px;font-weight:600">🔬 AMSTAR-2</span>'
+            f'<span class="muted" style="margin-left:8px;font-size:13px">16 criteri · 7 critici</span></div>'
+            f'<div style="font-family:JetBrains Mono,monospace;font-size:20px;font-weight:700">'
+            f'{met}<span class="muted" style="font-size:14px"> / 16</span></div></div>'
+            f'<div style="height:6px;background:#e2e5ea;border-radius:3px;overflow:hidden;margin-bottom:4px">'
+            f'<div style="width:{bar}%;height:100%;background:#475569"></div></div>'
+            f'<div class="crit-grid">{pills}</div>'
+            f'<p class="muted" style="font-size:12px;margin-top:8px">★ Critici: A2, A4, A7, A9, A11, A13, A15 — peso ×1.5</p>'
+            f'</div>'
+        )
+
+    if tool == "NOS" and ed.nos_criteria:
+        n = ed.nos_criteria
+        crits = [
+            ("S1", n.s1_representativeness), ("S2", n.s2_non_exposed_selection),
+            ("S3", n.s3_exposure_ascertainment), ("S4", n.s4_outcome_not_present),
+            ("C1", n.c1_primary_factor), ("C2", n.c2_additional_factor),
+            ("O1", n.o1_outcome_assessment), ("O2", n.o2_followup_length),
+            ("O3", n.o3_followup_adequacy),
+        ]
+        score = sc.nos_score if sc.nos_score is not None else sum(1 for _, v in crits if v is True)
+        bar = round(score / 9 * 100)
+        pills = "".join(_crit(k, v) for k, v in crits)
+        return (
+            f'<div class="card">'
+            f'<div class="row between" style="margin-bottom:10px">'
+            f'<div><span style="font-size:16px;font-weight:600">🔬 Newcastle-Ottawa Scale</span></div>'
+            f'<div style="font-family:JetBrains Mono,monospace;font-size:20px;font-weight:700">'
+            f'{score}<span class="muted" style="font-size:14px"> / 9</span></div></div>'
+            f'<div style="height:6px;background:#e2e5ea;border-radius:3px;overflow:hidden;margin-bottom:4px">'
+            f'<div style="width:{bar}%;height:100%;background:#475569"></div></div>'
+            f'<div class="crit-grid">{pills}</div>'
+            f'</div>'
+        )
+
+    if tool == "GRADE" and ed.grade_criteria:
+        g = ed.grade_criteria
+        crits = [
+            ("G1", g.g1_systematic_search), ("G2", g.g2_evidence_graded),
+            ("G3", g.g3_consensus_method), ("G4", g.g4_panel_composition),
+            ("G5", g.g5_coi_management), ("G6", g.g6_recommendation_strength),
+            ("G7", g.g7_evidence_gaps), ("G8", g.g8_external_review),
+        ]
+        met = sc.grade_met if sc.grade_met is not None else sum(1 for _, v in crits if v is True)
+        pills = "".join(_crit(k, v) for k, v in crits)
+        return (
+            f'<div class="card">'
+            f'<div class="row between" style="margin-bottom:10px">'
+            f'<div><span style="font-size:16px;font-weight:600">🔬 GRADE</span>'
+            f'<span class="muted" style="margin-left:8px;font-size:13px">Consensus assessment</span></div>'
+            f'<div style="font-family:JetBrains Mono,monospace;font-size:20px;font-weight:700">'
+            f'{met}<span class="muted" style="font-size:14px"> / 8</span></div></div>'
+            f'<div class="crit-grid">{pills}</div>'
+            f'</div>'
+        )
+
+    return (
+        f'<div class="card">'
+        f'<div class="row between">'
+        f'<span style="font-size:16px;font-weight:600">🔬 {tool or "Generic"}</span>'
+        f'<div style="font-family:JetBrains Mono,monospace;font-size:20px;font-weight:700">'
+        f'{sc.base_methodology_score:.1f}<span class="muted" style="font-size:14px"> / {sc.design_cap:.1f}</span></div>'
+        f'</div></div>'
+    )
+
+
+def _render_result_html(r: AnalysisResult, filename: str) -> str:
+    """Build full V2 result HTML for st.html()."""
+    ed = r.extracted
+    sc = r.scoring
+    c = r.confidence
+    pct = round(sc.normalized_score)
+
+    authors_list = ed.authors or []
+    authors = ", ".join(authors_list[:3]) + (" et al." if len(authors_list) > 3 else "")
+    subtitle = " · ".join(filter(None, [authors, ed.journal, str(ed.year) if ed.year else ""]))
+
+    tool_label = sc.methodology_tool or "Generic"
+    if sc.pedro_score is not None:   tool_label += f" {sc.pedro_score}/10"
+    elif sc.nos_score is not None:    tool_label += f" {sc.nos_score}/9"
+    elif sc.amstar2_met is not None:  tool_label += f" {sc.amstar2_met}/16"
+    elif sc.grade_met is not None:    tool_label += f" {sc.grade_met}/8"
+
+    # Sample stat
+    sample_html = ""
+    if ed.sample_size:
+        pop = (ed.population_type or "").replace("_", " ")
+        sample_html = (
+            f'<div style="border-left:1px solid #e2e5ea"></div>'
+            f'<div class="score-stat">'
+            f'<div class="num" style="font-size:20px">n={ed.sample_size}</div>'
+            f'<div class="lbl">{pop or "partecipanti"}</div>'
+            f'</div>'
+        )
+
+    subtitle_html = f'<div class="result-subtitle">{subtitle}</div>' if subtitle else ""
+    verdict_html = (
+        f'<div class="explanation">'
+        f'<strong class="eyebrow">Verdetto AI</strong>'
+        f'{sc.explanation}'
+        f'</div>'
+    ) if sc.explanation else ""
+
+    hero = (
+        f'<div class="card">'
+        f'<div class="result-header">'
+        f'{_ring_html(pct)}'
+        f'<div>'
+        f'{_badge(sc.category, sc.category_label)}'
+        f'<div class="result-title" style="margin-top:10px">{ed.title or filename}</div>'
+        f'{subtitle_html}'
+        f'<div class="score-stats">'
+        f'<div class="score-stat">'
+        f'<div class="num">{sc.final_score:.1f}<span class="cap"> /{sc.design_cap:.1f}</span></div>'
+        f'<div class="lbl">Score / Cap</div>'
+        f'</div>'
+        f'<div style="border-left:1px solid #e2e5ea"></div>'
+        f'<div class="score-stat">'
+        f'<div class="num" style="font-size:20px">{tool_label}</div>'
+        f'<div class="lbl">Tool</div>'
+        f'</div>'
+        f'{sample_html}'
+        f'</div>'
+        f'</div>'
+        f'</div>'
+        f'{verdict_html}'
+        f'</div>'
+    )
+
+    # Signal banners
+    sample_bonus = (sc.sample_size_adjustment or 0) + (sc.large_sample_bonus or 0)
+    banners = []
+    if sc.institutional_bonus > 0:
+        inst = ", ".join(sc.institutional_matches or [])
+        banners.append(_banner("blue", "★", f"<b>Elite institution</b> · {inst}", f"+{sc.institutional_bonus:.1f}"))
+    if sc.journal_bonus > 0:
+        banners.append(_banner("purple", "🏆", f"<b>Elite journal</b> · {sc.journal_match or ed.journal or ''}", f"+{sc.journal_bonus:.1f}"))
+    if sc.registered_protocol_bonus > 0:
+        banners.append(_banner("green", "✓", "<b>Protocollo registrato a priori</b> (ClinicalTrials.gov / PROSPERO / OSF)", f"+{sc.registered_protocol_bonus:.1f}"))
+    if sample_bonus > 0:
+        pop = (ed.population_type or "").replace("_", " ")
+        banners.append(_banner("blue", "★", f"<b>Sample bonus</b> · {pop or f'n={ed.sample_size}'}", f"+{sample_bonus:.1f}"))
+    if sc.coi_detected and sc.coi_penalty < 0:
+        coi_text = (ed.conflict_of_interest_statement or "")[:120]
+        banners.append(_banner("amber", "⚠", f"<b>Conflict of interest ({sc.coi_severity})</b> · {coi_text}", f"{sc.coi_penalty:.1f}"))
+    if sc.predatory_journal_detected:
+        banners.append(_banner("black", "🏴", f"<b>Predatory journal</b> · {sc.predatory_journal_match or ''}"))
+
+    banners_html = (
+        '<div class="stack" style="margin-bottom:20px">' + "".join(banners) + "</div>"
+    ) if banners else ""
+
+    # Methodology grid
+    method_html = _methodology_html(ed, sc)
+
+    # Metrics row
+    metric_cells = []
+    if ed.study_design:
+        metric_cells.append(
+            f'<div class="metric"><div class="lbl">Study design</div>'
+            f'<div class="val" style="font-size:14px;text-transform:capitalize">{ed.study_design.replace("_"," ")}</div></div>'
+        )
+    if ed.sample_size:
+        pop = (ed.population_type or "").replace("_", " ")
+        metric_cells.append(
+            f'<div class="metric"><div class="lbl">Sample</div>'
+            f'<div class="val">n = {ed.sample_size}</div>'
+            f'{"" if not pop else f"<div class=sub2>{pop}</div>"}</div>'
+        )
+    if ed.journal:
+        metric_cells.append(
+            f'<div class="metric"><div class="lbl">Journal</div>'
+            f'<div class="val" style="font-size:14px">{ed.journal}</div>'
+            f'{"" if not ed.year else f"<div class=sub2>{ed.year}</div>"}</div>'
+        )
+    metrics_html = (
+        f'<div class="metric-grid" style="margin-top:20px;margin-bottom:20px">{"".join(metric_cells)}</div>'
+    ) if metric_cells else ""
+
+    # Score breakdown
+    bar_pct = round(sc.base_methodology_score / sc.design_cap * 100) if sc.design_cap > 0 else 0
+    brk_rows = [_brk(f"Base score ({sc.methodology_tool})", f"{sc.base_methodology_score:.1f}", bar=bar_pct)]
+    if sample_bonus:
+        brk_rows.append(_brk("Sample bonus", f"+{sample_bonus:.1f}"))
+    if sc.institutional_bonus > 0:
+        brk_rows.append(_brk("Elite institution", f"+{sc.institutional_bonus:.1f}", note=", ".join(sc.institutional_matches or [])))
+    if sc.journal_bonus > 0:
+        brk_rows.append(_brk("Elite journal", f"+{sc.journal_bonus:.1f}", note=sc.journal_match or ""))
+    if sc.registered_protocol_bonus > 0:
+        brk_rows.append(_brk("Protocol registered", f"+{sc.registered_protocol_bonus:.1f}"))
+    if sc.coi_penalty:
+        brk_rows.append(_brk("CoI penalty", f"{sc.coi_penalty:.1f}", muted=True))
+    if sc.predatory_journal_detected:
+        brk_rows.append(_brk("Predatory → score forced 1.0", "FLAG", muted=True))
+    cap_note = f' → capped {sc.final_score:.1f}' if sc.raw_score != sc.final_score else ""
+    brk_rows.append(
+        f'<div class="brk-row total">'
+        f'<span class="lbl">Final score</span>'
+        f'<span class="val">{sc.raw_score:.1f}{cap_note}</span>'
+        f'</div>'
+    )
+    breakdown = (
+        f'<div class="card">'
+        f'<h3>Score breakdown</h3>'
+        f'<div class="brk">{"".join(brk_rows)}</div>'
+        f'</div>'
+    )
+
+    # Main finding
+    finding_html = ""
+    if ed.main_findings_summary:
+        finding_html = (
+            f'<div class="card">'
+            f'<h3>Main finding</h3>'
+            f'<p style="font-size:14.5px;line-height:1.65">{ed.main_findings_summary}</p>'
+            f'</div>'
+        )
+
+    # Funding & COI
+    funding_html = ""
+    if ed.funding_sources or ed.conflict_of_interest_statement:
+        funders = ", ".join(ed.funding_sources) if ed.funding_sources else "Non dichiarato"
+        coi = ed.conflict_of_interest_statement or ""
+        coi_part = f'<div class="muted" style="font-size:12.5px;margin-top:4px">CoI: {coi}</div>' if coi else ""
+        funding_html = (
+            f'<div class="card compact">'
+            f'<div class="eyebrow" style="margin-bottom:4px">Funding</div>'
+            f'<div style="font-size:13.5px">{funders}</div>'
+            f'{coi_part}'
+            f'</div>'
+        )
+
+    # Confidence
+    conf_pct = round(c.confidence_pct)
+    conf_color = {"high": "#059669", "medium": "#ca8a04", "low": "#dc2626"}.get(c.level, "#6b7280")
+    conf_cls = {"high": "high", "medium": "med", "low": "low"}.get(c.level, "low")
+    confidence_html = (
+        f'<div class="card compact">'
+        f'<div class="conf-row">'
+        f'<span class="conf-label">Extraction confidence</span>'
+        f'<div class="conf-bar"><div class="conf-fill {conf_cls}" style="width:{conf_pct}%"></div></div>'
+        f'<span class="conf-text" style="color:{conf_color}">'
+        f'{c.level.upper()} · {c.extracted_fields}/{c.total_fields}'
+        f'</span>'
+        f'</div>'
+        f'</div>'
+    )
+
+    return (
+        hero
+        + banners_html
+        + method_html
+        + metrics_html
+        + breakdown
+        + finding_html
+        + funding_html
+        + confidence_html
+    )
+
+
+# ── Sidebar ───────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.html("""
+    <div style="background:var(--surface);border-bottom:1px solid var(--border);
+                padding:16px 20px;margin:-1rem -1rem 1.2rem -1rem">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:32px;height:32px;background:var(--accent);border-radius:8px;
+                    display:flex;align-items:center;justify-content:center;
+                    color:white;font-weight:700;font-size:13px;flex-shrink:0">SQ</div>
+        <div>
+          <div style="font-size:15px;font-weight:600;line-height:1.2">Sport Science QA</div>
+          <div style="font-size:11px;color:var(--text-secondary)">v2.0</div>
+        </div>
+      </div>
+    </div>
+    """)
+
+    st.markdown("**🔑 Gemini API Key**")
+    key_input = st.text_input(
+        "API Key", type="password",
+        value=st.session_state.get("api_key", ""),
+        label_visibility="collapsed",
+        placeholder="AIzaSy...",
+    )
+    if key_input:
+        st.session_state["api_key"] = key_input.strip()
+    elif not st.session_state.get("api_key") and settings.gemini_api_key:
+        st.session_state["api_key"] = settings.gemini_api_key
+
+    key_set = bool(st.session_state.get("api_key"))
+    dot_color = "#059669" if key_set else "#dc2626"
+    key_text = "Configurata" if key_set else "Mancante"
+    st.html(f"""
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:4px">
+      <div style="width:7px;height:7px;border-radius:50%;background:{dot_color}"></div>
+      {key_text}
+    </div>
+    <a href="https://aistudio.google.com/apikey" target="_blank"
+       style="font-size:11px;color:var(--accent);text-decoration:none">
+      Ottieni chiave gratuita →
+    </a>
+    """)
+
+    st.html('<div style="border-top:1px solid var(--border);margin:1rem 0"></div>')
+
+    # Verdict scale
+    st.html("""
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
+                color:var(--text-secondary);margin-bottom:10px">Verdict Scale</div>
+    <div class="scale-row"><span class="cat-badge cat-gold_standard" style="font-size:11px;padding:3px 10px">🥇 Gold</span><span class="rng">≥ 8.5</span></div>
+    <div class="scale-row"><span class="cat-badge cat-practical_evidence" style="font-size:11px;padding:3px 10px">🔵 Practical</span><span class="rng">7.0–8.4</span></div>
+    <div class="scale-row"><span class="cat-badge cat-exploratory" style="font-size:11px;padding:3px 10px">🔬 Explor.</span><span class="rng">5.0–6.9</span></div>
+    <div class="scale-row"><span class="cat-badge cat-weak" style="font-size:11px;padding:3px 10px">⚠️ Weak</span><span class="rng">&lt; 5.0</span></div>
+    <div class="scale-row"><span class="cat-badge cat-black_flag" style="font-size:11px;padding:3px 10px">🏴 Black</span><span class="rng">predatory</span></div>
+
+    <div style="border-top:1px solid var(--border);margin:1rem 0"></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
+                color:var(--text-secondary);margin-bottom:10px">Quality % (ring)</div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:1rem">
+      <span class="chip chip-gold">Excellent ≥ 85%</span>
+      <span class="chip chip-silver">Good 70–84%</span>
+      <span class="chip chip-bronze">Fair 50–69%</span>
+      <span class="chip chip-blue">Poor 30–49%</span>
+      <span class="chip chip-black">Critical &lt; 30%</span>
+    </div>
+
+    <div style="border-top:1px solid var(--border);margin:1rem 0"></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
+                color:var(--text-secondary);margin-bottom:10px">Methodology Tools</div>
+    <div class="method-row"><strong>PEDro</strong><span class="arrow">→</span><span class="applies">RCT</span></div>
+    <div class="method-row"><strong>AMSTAR-2</strong><span class="arrow">→</span><span class="applies">Meta / SR</span></div>
+    <div class="method-row"><strong>NOS</strong><span class="arrow">→</span><span class="applies">Cohort / CS</span></div>
+    <div class="method-row"><strong>GRADE</strong><span class="arrow">→</span><span class="applies">Consensus</span></div>
+    <div class="method-row"><strong>Generic</strong><span class="arrow">→</span><span class="applies">Case / Review</span></div>
+
+    <div style="border-top:1px solid var(--border);margin:1rem 0"></div>
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
+                color:var(--text-secondary);margin-bottom:8px">Bonuses / Penalties</div>
+    <div style="font-size:12px;line-height:1.9;color:var(--text-secondary)">
+      Elite institution <span style="font-family:monospace;color:#059669">+0.5</span><br>
+      Elite journal <span style="font-family:monospace;color:#059669">+0.5</span><br>
+      Registered protocol <span style="font-family:monospace;color:#059669">+0.5</span><br>
+      N ≥ 100 <span style="font-family:monospace;color:#059669">+0.4</span><br>
+      N ≥ 50 <span style="font-family:monospace;color:#059669">+0.3</span><br>
+      CoI obvio <span style="font-family:monospace;color:#dc2626">−3.0</span><br>
+      Predatory <span style="font-family:monospace;color:#dc2626">→ 1.0</span>
+    </div>
+    """)
+
+
+# ── Main area ─────────────────────────────────────────────────────────────
+st.html("""
+<div style="background:var(--surface);border-bottom:1px solid var(--border);
+            padding:16px 32px;margin:-2rem -1rem 0 -1rem;
+            display:flex;align-items:center;gap:16px;box-shadow:var(--shadow)">
+  <div style="width:36px;height:36px;background:var(--accent);border-radius:8px;
+              display:flex;align-items:center;justify-content:center;
+              color:white;font-weight:700;font-size:14px;flex-shrink:0">SQ</div>
+  <h1 style="font-size:18px;font-weight:600;letter-spacing:-0.3px;margin:0">
+    Sport Science Quality Analyzer
+    <span style="color:var(--text-secondary);font-weight:400;font-size:14px;margin-left:8px">v2.0</span>
+  </h1>
+</div>
+""")
+
+tab_single, tab_batch = st.tabs(["Singolo PDF", "Analisi Batch"])
+
+# ── Tab 1: Single ─────────────────────────────────────────────────────────
+with tab_single:
+    st.markdown("")
+    uploaded_single = st.file_uploader(
+        "Carica un PDF per la valutazione di qualità metodologica (max 50 MB)",
+        type=["pdf"],
+        accept_multiple_files=False,
+    )
+
+    if uploaded_single:
+        if st.button("Analizza Paper", type="primary", key="btn_single"):
+            api_key = _resolve_key()
+            with st.spinner("Gemini sta analizzando il paper..."):
+                try:
+                    result = _analyze_one(uploaded_single.read(), uploaded_single.name, api_key)
+                    st.session_state["single_result"] = result
+                    st.session_state["single_filename"] = uploaded_single.name
+                except QuotaExhaustedError:
+                    st.error("Quota Gemini esaurita. Riprova più tardi o usa un'altra chiave.")
+                    st.stop()
+                except InvalidAPIKeyError:
+                    st.error("API key Gemini non valida. Verificala su https://aistudio.google.com/apikey")
+                    st.stop()
+
+    if "single_result" in st.session_state:
+        r: AnalysisResult = st.session_state["single_result"]
+        fname: str = st.session_state.get("single_filename", "paper.pdf")
 
         if r.error:
-            st.error(f"**{r.filename}**: {r.error}")
-            continue
+            st.error(f"❌ Analisi fallita: {r.error}")
+        else:
+            st.html(f"""
+            <div class="row between" style="margin:12px 0">
+              <div class="row">
+                <span class="eyebrow">FILE</span>
+                <span style="font-weight:600;max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{fname}</span>
+              </div>
+            </div>
+            """)
+            st.html(_render_result_html(r, fname))
 
-        with st.container(border=True):
-            # Header row
-            col_score, col_meta = st.columns([1, 4])
+    elif not uploaded_single:
+        st.html("""
+        <div class="card" style="margin-top:16px">
+          <h2>Come funziona</h2>
+          <p class="sub">Pipeline di estrazione e scoring automatica.</p>
+          <ol style="padding-left:18px;font-size:13.5px;line-height:1.9;color:#1a1d23">
+            <li><b>Estrazione</b> · L'AI legge abstract, metodi, sample, funding e conflitti di interessi</li>
+            <li><b>Selezione strumento</b> · PEDro (RCT) / AMSTAR-2 (SR/Meta) / NOS (Cohort) / GRADE (Consensus) / Generic</li>
+            <li><b>Scoring</b> · Punteggio grezzo + bonus istituzione/rivista/sample + penalty CoI</li>
+            <li><b>Verdetto</b> · Scala 5 tier (Gold → Black Flag) + ring di qualità normalizzato per confronto equo</li>
+          </ol>
+          <div class="row wrap" style="gap:6px;margin-top:14px">
+            <span class="chip chip-silver">⚡ caching 24h</span>
+            <span class="chip chip-silver">🛡 CoI detector</span>
+            <span class="chip chip-silver">🏴 predatory check</span>
+          </div>
+        </div>
+        """)
 
-            with col_score:
-                norm_color = _norm_color(s.normalized_score)
-                st.markdown(
-                    f'<div style="text-align:center;padding:10px 0">'
-                    f'<div style="font-family:JetBrains Mono,monospace;font-size:32px;font-weight:700;color:{norm_color}">'
-                    f'{s.normalized_score:.0f}%</div>'
-                    f'<div style="font-size:13px;color:#9ca3af">{s.final_score:.1f} / {s.design_cap}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
+# ── Tab 2: Batch ──────────────────────────────────────────────────────────
+with tab_batch:
+    st.markdown("")
+    uploaded_batch = st.file_uploader(
+        "Carica fino a 10 PDF per confrontarli in un'unica run",
+        type=["pdf"],
+        accept_multiple_files=True,
+        key="batch_uploader",
+    )
 
-            with col_meta:
-                title = e.title or r.filename
-                authors = ", ".join(e.authors[:3]) if e.authors else "Unknown authors"
-                if e.authors and len(e.authors) > 3:
-                    authors += " et al."
-                year_str = f" ({e.year})" if e.year else ""
-                journal_str = f" — {e.journal}" if e.journal else ""
+    if uploaded_batch:
+        if len(uploaded_batch) > 10:
+            st.warning("Massimo 10 file — solo i primi 10 saranno analizzati.")
+            uploaded_batch = uploaded_batch[:10]
+        st.caption(f"{len(uploaded_batch)} file selezionati")
 
-                badges = _cat_badge(s.category, s.category_label)
-                mb = _meth_badge(s.methodology_tool, s)
-                if mb:
-                    badges += " " + mb
+    if uploaded_batch:
+        if st.button("Analizza Batch", type="primary", key="btn_batch"):
+            api_key = _resolve_key()
+            results: list[AnalysisResult] = []
+            progress = st.progress(0, text="Avvio analisi batch...")
+            for i, f in enumerate(uploaded_batch):
+                progress.progress(i / len(uploaded_batch), text=f"Analisi {f.name} ({i+1}/{len(uploaded_batch)})...")
+                try:
+                    r = _analyze_one(f.read(), f.name, api_key)
+                    results.append(r)
+                except QuotaExhaustedError:
+                    st.error("Quota Gemini esaurita. Riprova più tardi.")
+                    break
+                except InvalidAPIKeyError:
+                    st.error("API key non valida.")
+                    break
+            progress.progress(1.0, text="Completato!")
+            st.session_state["batch_results"] = results
 
-                st.markdown(
-                    f'<div style="font-size:17px;font-weight:700;margin-bottom:2px">{title}</div>'
-                    f'<div style="font-size:13px;color:#6b7280;margin-bottom:8px">{authors}{year_str}{journal_str}</div>'
-                    f'{badges}',
-                    unsafe_allow_html=True,
-                )
+    if "batch_results" in st.session_state and st.session_state["batch_results"]:
+        results: list[AnalysisResult] = st.session_state["batch_results"]
 
-            # Details in columns
-            c1, c2 = st.columns(2)
+        # Sort by category order then score
+        cat_order = ["gold_standard", "practical_evidence", "exploratory", "weak", "black_flag", "error"]
+        results_sorted = sorted(
+            results,
+            key=lambda r: (cat_order.index(r.scoring.category) if r.scoring.category in cat_order else 99,
+                           -r.scoring.final_score),
+        )
 
-            with c1:
-                st.markdown("#### Study Information")
-                info_rows = [
-                    ("Design", DESIGN_LABELS.get(e.study_design or "", "—")),
-                    ("Sample Size", str(e.sample_size) if e.sample_size is not None else "—"),
-                    ("Population", POP_LABELS.get(e.population_type or "", "—")),
-                    ("Sport", e.sport or "—"),
-                    ("Context", CTX_LABELS.get(e.ecological_context or "", "—")),
-                    ("Control Group", "Yes" if e.has_control_group is True else ("No" if e.has_control_group is False else "—")),
-                    ("Registered Protocol", "Yes" if e.registered_protocol is True else ("No" if e.registered_protocol is False else "—")),
-                ]
-                if e.doi:
-                    info_rows.append(("DOI", e.doi))
-                html = ""
-                for lbl, val in info_rows:
-                    html += f'<div class="detail-row"><span class="detail-label">{lbl}</span><span class="detail-value">{val}</span></div>'
-                st.markdown(html, unsafe_allow_html=True)
+        # Summary pills
+        counts: dict[str, int] = {}
+        for r in results:
+            counts[r.scoring.category] = counts.get(r.scoring.category, 0) + 1
 
-            with c2:
-                st.markdown("#### Scoring Breakdown")
-                score_rows = [
-                    ("Design Cap", f"{s.design_cap}/10", ""),
-                    ("Base Methodology", f"{s.base_methodology_score:.1f}", ""),
-                    ("Sample Adj.", f"{'+' if s.sample_size_adjustment > 0 else ''}{s.sample_size_adjustment:.1f}",
-                     "val-pos" if s.sample_size_adjustment > 0 else ("val-neg" if s.sample_size_adjustment < 0 else "")),
-                ]
-                if s.large_sample_bonus > 0:
-                    score_rows.append(("Large Sample (N>=100)", f"+{s.large_sample_bonus:.1f}", "val-pos"))
-                if s.elite_exception_applied:
-                    score_rows.append(("Elite Exception", "Applied", "val-pos"))
-                if s.registered_protocol_bonus > 0:
-                    score_rows.append(("Registered Protocol", f"+{s.registered_protocol_bonus:.1f}", "val-pos"))
-                score_rows.append((
-                    "Institution Bonus",
-                    "Nullified (COI)" if s.bonuses_nullified else (f"+{s.institutional_bonus:.1f}" if s.institutional_bonus > 0 else "0.0"),
-                    "" if s.bonuses_nullified else ("val-pos" if s.institutional_bonus > 0 else ""),
-                ))
-                score_rows.append((
-                    "Journal Bonus",
-                    "Nullified (COI)" if s.bonuses_nullified else (f"+{s.journal_bonus:.1f}" if s.journal_bonus > 0 else "0.0"),
-                    "" if s.bonuses_nullified else ("val-pos" if s.journal_bonus > 0 else ""),
-                ))
-                if s.coi_detected:
-                    score_rows.append((f"COI Penalty ({s.coi_severity or 'obvious'})", f"-{s.coi_penalty:.1f}", "val-neg"))
-                if s.predatory_journal_detected:
-                    score_rows.append(("Predatory Journal", "BLACK FLAG", "val-neg"))
-                score_rows.append(("Final Score", f"{s.final_score:.1f} / {s.design_cap}", ""))
-                score_rows.append(("Relative Quality", f"{s.normalized_score:.0f}%", ""))
+        pill_defs = [
+            ("gold_standard", "🥇 Gold Standard"),
+            ("practical_evidence", "🔵 Practical Evidence"),
+            ("exploratory", "🔬 Exploratory"),
+            ("weak", "⚠️ Weak"),
+            ("black_flag", "🏴 Black Flag"),
+        ]
+        pills_html = "".join(
+            f'<span class="summary-pill cat-{k}">{lbl} · {counts[k]}</span>'
+            for k, lbl in pill_defs if k in counts
+        )
+        st.html(f'<div class="summary-row" style="margin-bottom:16px">{pills_html}</div>')
 
-                html = ""
-                for lbl, val, cls in score_rows:
-                    cls_attr = f' class="detail-value {cls}"' if cls else ' class="detail-value"'
-                    html += f'<div class="detail-row"><span class="detail-label">{lbl}</span><span{cls_attr}>{val}</span></div>'
-                st.markdown(html, unsafe_allow_html=True)
+        # Batch rows (Streamlit expanders with V2 detail inside)
+        for r in results_sorted:
+            sc = r.scoring
+            ed = r.extracted
+            pct = round(sc.normalized_score)
+            tool_label = sc.methodology_tool or "Generic"
+            if sc.pedro_score is not None:   tool_label += f" {sc.pedro_score}/10"
+            elif sc.nos_score is not None:    tool_label += f" {sc.nos_score}/9"
+            elif sc.amstar2_met is not None:  tool_label += f" {sc.amstar2_met}/16"
+            ring_sm = _ring_html(pct, size=36, stroke=4)
+            title_display = ed.title or r.filename or "Paper"
 
-            # Funding & COI + Confidence
-            c3, c4 = st.columns(2)
+            # Expander label includes score + category badge text
+            exp_label = f"{sc.category_label} · {sc.final_score:.1f}/{sc.design_cap:.1f} · {title_display[:60]}"
 
-            with c3:
-                st.markdown("#### Funding & Conflicts")
-                coi_val = f"YES ({s.coi_severity or 'obvious'})" if s.coi_detected else "No"
-                coi_cls = "val-neg" if s.coi_detected else "val-pos"
-                html = f'<div class="detail-row"><span class="detail-label">COI Detected</span><span class="detail-value {coi_cls}">{coi_val}</span></div>'
-                if e.coi_severity == "ambiguous" and not s.coi_detected:
-                    html += '<div class="detail-row"><span class="detail-label">COI Severity</span><span class="detail-value" style="color:#eab308">Ambiguous (not penalized)</span></div>'
-                funders = ", ".join(e.funding_sources) if e.funding_sources else "Not reported"
-                html += f'<div class="detail-row"><span class="detail-label">Funders</span><span class="detail-value">{funders}</span></div>'
-                if e.product_tested:
-                    html += f'<div class="detail-row"><span class="detail-label">Product Tested</span><span class="detail-value">{e.product_tested}</span></div>'
-                st.markdown(html, unsafe_allow_html=True)
-                if e.conflict_of_interest_statement:
-                    coi_text = e.conflict_of_interest_statement[:200]
-                    if len(e.conflict_of_interest_statement) > 200:
-                        coi_text += "..."
-                    st.caption(f'*"{coi_text}"*')
-
-            with c4:
-                st.markdown("#### Extraction Confidence")
-                conf_color = {"high": "#059669", "medium": "#eab308", "low": "#ef4444"}.get(c.level, "#6b7280")
-                st.markdown(
-                    f'<div class="detail-row"><span class="detail-label">Data Extracted</span>'
-                    f'<span class="detail-value">{c.extracted_fields}/{c.total_fields} fields ({c.confidence_pct:.0f}%)</span></div>',
-                    unsafe_allow_html=True,
-                )
-                st.progress(c.confidence_pct / 100)
-                if c.missing_fields:
-                    st.caption(f"Missing: {', '.join(c.missing_fields)}")
-                if e.extraction_notes:
-                    st.caption(f"*{e.extraction_notes}*")
-
-            # Methodology criteria grids
-            if e.pedro_criteria and e.study_design == "rct":
-                st.markdown("#### PEDro Scale (C2-C11 scored)")
-                pc = e.pedro_criteria
-                cells = [
-                    ("C1", "Eligibility", pc.c1_eligibility_specified),
-                    ("C2", "Random Alloc.", pc.c2_random_allocation),
-                    ("C3", "Concealed", pc.c3_concealed_allocation),
-                    ("C4", "Baseline", pc.c4_baseline_comparable),
-                    ("C5", "Blind Subj.", pc.c5_blinding_subjects),
-                    ("C6", "Blind Ther.", pc.c6_blinding_therapists),
-                    ("C7", "Blind Assess.", pc.c7_blinding_assessors),
-                    ("C8", "Follow-up", pc.c8_adequate_followup),
-                    ("C9", "ITT", pc.c9_intention_to_treat),
-                    ("C10", "Between-Grp", pc.c10_between_group),
-                    ("C11", "Point&Var", pc.c11_point_variability),
-                ]
-                html = '<div class="criteria-grid">' + "".join(_criteria_html(k, l, v) for k, l, v in cells) + "</div>"
-                st.markdown(html, unsafe_allow_html=True)
-                if s.pedro_score is not None:
-                    st.caption(f"PEDro Score: {s.pedro_score}/10")
-
-            if e.amstar2_criteria and e.study_design in ("meta_analysis", "systematic_review"):
-                st.markdown("#### AMSTAR-2 (critical items highlighted)")
-                ac = e.amstar2_criteria
-                CRITICAL = {"A2", "A4", "A7", "A9", "A11", "A13", "A15"}
-                items = [
-                    ("A1", "PICO", ac.a1_pico),
-                    ("A2", "Protocol", ac.a2_protocol_registered),
-                    ("A3", "Design", ac.a3_study_design_explained),
-                    ("A4", "Search", ac.a4_comprehensive_search),
-                    ("A5", "Dup Select", ac.a5_duplicate_selection),
-                    ("A6", "Dup Extract", ac.a6_duplicate_extraction),
-                    ("A7", "Excluded", ac.a7_excluded_studies_listed),
-                    ("A8", "Described", ac.a8_studies_described),
-                    ("A9", "RoB", ac.a9_risk_of_bias_assessed),
-                    ("A10", "Funding", ac.a10_funding_reported),
-                    ("A11", "Stats", ac.a11_statistical_methods),
-                    ("A12", "RoB Impact", ac.a12_rob_impact_assessed),
-                    ("A13", "RoB Interp", ac.a13_rob_in_interpretation),
-                    ("A14", "Heterogen.", ac.a14_heterogeneity_discussed),
-                    ("A15", "Pub Bias", ac.a15_publication_bias),
-                    ("A16", "COI", ac.a16_coi_disclosed),
-                ]
-                html = '<div class="criteria-grid">' + "".join(
-                    _criteria_html(k, l, v, critical=(k in CRITICAL)) for k, l, v in items
-                ) + "</div>"
-                st.markdown(html, unsafe_allow_html=True)
-                if s.amstar2_met is not None:
-                    st.caption(f"Criteria Met: {s.amstar2_met}/16")
-
-            if e.nos_criteria and e.study_design in ("prospective_cohort", "cross_sectional"):
-                st.markdown("#### Newcastle-Ottawa Scale (9 stars)")
-                nc = e.nos_criteria
-                domains = [
-                    ("Selection", [
-                        ("S1", "Representat.", nc.s1_representativeness),
-                        ("S2", "Non-Exposed", nc.s2_non_exposed_selection),
-                        ("S3", "Exposure", nc.s3_exposure_ascertainment),
-                        ("S4", "Outcome Abs.", nc.s4_outcome_not_present),
-                    ]),
-                    ("Comparability", [
-                        ("C1", "Primary", nc.c1_primary_factor),
-                        ("C2", "Additional", nc.c2_additional_factor),
-                    ]),
-                    ("Outcome", [
-                        ("O1", "Assessment", nc.o1_outcome_assessment),
-                        ("O2", "FU Length", nc.o2_followup_length),
-                        ("O3", "FU Adequacy", nc.o3_followup_adequacy),
-                    ]),
-                ]
-                for domain_name, items in domains:
-                    st.caption(f"**{domain_name}**")
-                    html = '<div class="criteria-grid">' + "".join(
-                        _criteria_html(k, l, v) for k, l, v in items
-                    ) + "</div>"
-                    st.markdown(html, unsafe_allow_html=True)
-                if s.nos_score is not None:
-                    st.caption(f"Stars Awarded: {s.nos_score}/9")
-
-            if e.grade_criteria and e.study_design == "consensus_statement":
-                st.markdown("#### GRADE Consensus Quality (8 items)")
-                gc = e.grade_criteria
-                items = [
-                    ("G1", "Search", gc.g1_systematic_search),
-                    ("G2", "Graded", gc.g2_evidence_graded),
-                    ("G3", "Method", gc.g3_consensus_method),
-                    ("G4", "Panel", gc.g4_panel_composition),
-                    ("G5", "COI Mgmt", gc.g5_coi_management),
-                    ("G6", "Strength", gc.g6_recommendation_strength),
-                    ("G7", "Gaps", gc.g7_evidence_gaps),
-                    ("G8", "Review", gc.g8_external_review),
-                ]
-                html = '<div class="criteria-grid">' + "".join(
-                    _criteria_html(k, l, v) for k, l, v in items
-                ) + "</div>"
-                st.markdown(html, unsafe_allow_html=True)
-                if s.grade_met is not None:
-                    st.caption(f"Criteria Met: {s.grade_met}/8")
-
-            # Explanation
-            st.markdown(f"**Assessment:** {s.explanation}")
-
-# ---------------------------------------------------------------------------
-# Scoring Reference (always visible, collapsed)
-# ---------------------------------------------------------------------------
-st.markdown("---")
-with st.expander("Scoring Parameters Reference"):
-
-    r1, r2 = st.columns(2)
-
-    with r1:
-        st.markdown("##### Study Design Caps")
-        st.markdown("""
-| Design | Max Score |
-|---|---|
-| Meta-Analysis | 10 |
-| Systematic Review | 10 |
-| RCT | 10 |
-| Consensus Statement | 9 |
-| Prospective Cohort | 8 |
-| Cross-Sectional | 7 |
-| Narrative Review / Expert Opinion | 6 |
-| Case Series | 5.5 |
-| Case Study | 5 |
-""")
-
-    with r2:
-        st.markdown("##### Quality Categories")
-        st.markdown("""
-| Category | Score Range |
-|---|---|
-| GOLD STANDARD | >= 8.5 |
-| PRACTICAL EVIDENCE | 7.0 - 8.4 |
-| EXPLORATORY | 5.0 - 6.9 |
-| WEAK | < 5.0 |
-| BLACK FLAG | Predatory journal |
-""")
-
-    st.markdown("##### Bonuses & Penalties")
-    st.markdown("""
-| Modifier | Value | Condition |
-|---|---|---|
-| Elite Institution | +0.5 | Aspetar, IOC, UEFA, top clubs, etc. |
-| Elite Journal | +0.5 | BJSM, MSSE, AJSM, Lancet, etc. |
-| Large Sample | +0.4 | N >= 100 |
-| Registered Protocol | +0.5 | Pre-registered on ClinicalTrials.gov, PROSPERO, OSF |
-| Good Sample | +0.3 | N >= 50 |
-| COI Penalty | -3.0 | Obvious COI + all bonuses nullified |
-| Small Sample | -0.5 / -1.0 | N < 20 / N < 10 (waived for elite athletes) |
-| Predatory Journal | BLACK FLAG | Score forced to 1.0 |
-""")
-
-    st.markdown("##### Methodology Assessment Tools")
-    st.markdown("""
-| Tool | Applies To | Criteria | Scoring Method |
-|---|---|---|---|
-| **PEDro** | RCTs | 11 items (C1 descriptive, C2-C11 scored) | Simple sum of C2-C11 (max 10), ratio × design cap |
-| **AMSTAR-2** | Systematic Reviews & Meta-Analyses | 16 items (7 critical: A2, A4, A7, A9, A11, A13, A15) | Weighted sum: critical items ×1.5, others ×1.0, ratio × design cap |
-| **NOS** | Prospective Cohort & Cross-Sectional | 9 items: Selection (S1-S4), Comparability (C1-C2), Outcome (O1-O3) | Stars earned / stars assessable, ratio × design cap |
-| **GRADE** | Consensus Statements | 8 items: search, grading, method, panel, COI, strength, gaps, review | Criteria met / criteria assessable, ratio × design cap |
-| **Generic** | All other designs | Sample size, effect sizes, CIs, statistical methods | Starts at 60% of cap, adjusted by methodology signals |
-""")
-
-    st.markdown("##### Special Rules")
-    st.markdown("""
-- **Elite Athlete Exception:** Small sample penalty waived when population is elite/professional (e.g., N=15 national team players).
-- **COI Filter:** Applied only when COI is *obvious* (funder undeniably sells the product tested). Ambiguous COI is flagged but not penalized.
-- **BLACK FLAG:** Reserved exclusively for predatory journals. COI does not trigger BLACK FLAG.
-- **Null-on-Unknown:** If data cannot be reliably extracted from the paper, it is left null — never invented.
-- **Quality % (ring):** Percentage of the maximum achievable score for that study design (e.g. 6.5/7 = 93%). Enables fair comparison across different study types. The color reflects this percentage: **Excellent** ≥ 85% · **Good** 70–84% · **Fair** 50–69% · **Poor** 30–49% · **Critical** < 30%.
-- **Confidence (extraction reliability):** How many key fields the AI successfully extracted. **High** ≥ 80% · **Medium** ≥ 55% · **Low** < 55%. Low confidence signals a hard-to-read PDF or incomplete information in the paper.
-""")
+            with st.expander(exp_label):
+                if r.error:
+                    st.error(f"Analisi fallita: {r.error}")
+                else:
+                    st.html(_render_result_html(r, r.filename))
