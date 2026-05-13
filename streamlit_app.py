@@ -150,20 +150,21 @@ div[data-testid="stDecoration"] {{ display: none !important; }}
     background: #f0f5ff !important;
 }}
 
-/* Tabs */
-[data-testid="stTabs"] [role="tab"] {{
-    font-family: var(--font) !important; font-size: 13px !important;
-    font-weight: 500 !important; color: var(--text-secondary) !important;
-    padding: 12px 18px !important;
+/* Segmented control (tab replacement) */
+[data-testid="stSegmentedControl"] {{
+    margin-bottom: 12px !important;
 }}
-[data-testid="stTabs"] [role="tab"][aria-selected="true"] {{
-    color: var(--accent) !important;
+[data-testid="stSegmentedControl"] button {{
+    font-family: var(--font) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    padding: 10px 20px !important;
+    border-radius: 6px !important;
 }}
-[data-testid="stTabs"] [data-baseweb="tab-highlight"] {{
-    background-color: var(--accent) !important;
-}}
-[data-testid="stTabs"] [data-baseweb="tab-border"] {{
-    background-color: var(--border) !important;
+[data-testid="stSegmentedControl"] button[aria-pressed="true"] {{
+    background: var(--accent) !important;
+    color: white !important;
+    border-color: var(--accent) !important;
 }}
 
 /* Progress */
@@ -834,15 +835,21 @@ st.html("""
 </div>
 """)
 
-tab_single, tab_batch = st.tabs(["Single PDF", "Batch Analysis"])
+tab_active = st.segmented_control(
+    "Mode", ["Single PDF", "Batch Analysis"],
+    default="Single PDF",
+    key="main_tab",
+    label_visibility="collapsed",
+)
 
-# ── Tab 1: Single ─────────────────────────────────────────────────────────
-with tab_single:
+# ── Single PDF ────────────────────────────────────────────────────────────
+if tab_active == "Single PDF":
     st.markdown("")
     uploaded_single = st.file_uploader(
         "Upload a PDF for methodological quality assessment (max 50 MB)",
         type=["pdf"],
         accept_multiple_files=False,
+        key="single_uploader",
     )
 
     if uploaded_single:
@@ -922,8 +929,8 @@ with tab_single:
         </div>
         """)
 
-# ── Tab 2: Batch ──────────────────────────────────────────────────────────
-with tab_batch:
+# ── Batch Analysis ────────────────────────────────────────────────────────
+elif tab_active == "Batch Analysis":
     st.markdown("")
     uploaded_batch = st.file_uploader(
         "Upload up to 10 PDFs to compare them in a single run",
@@ -984,13 +991,13 @@ with tab_batch:
         )
         st.html(f'<div class="summary-row" style="margin-bottom:16px">{pills_html}</div>')
 
-        _cat_border = {
-            "gold_standard":      "#d97706",
-            "practical_evidence": "#2563eb",
-            "exploratory":        "#7c3aed",
-            "weak":               "#f59e0b",
-            "black_flag":         "#111827",
-            "error":              "#dc2626",
+        _cat_colors = {
+            "gold_standard":      ("#d97706", "#fffbeb", "#fef3c7"),
+            "practical_evidence": ("#2563eb", "#eff6ff", "#dbeafe"),
+            "exploratory":        ("#7c3aed", "#f5f3ff", "#ede9fe"),
+            "weak":               ("#f59e0b", "#fffbeb", "#fef9c3"),
+            "black_flag":         ("#111827", "#f3f4f6", "#e5e7eb"),
+            "error":              ("#dc2626", "#fef2f2", "#fecaca"),
         }
 
         rows_html: list[str] = []
@@ -1004,14 +1011,17 @@ with tab_batch:
             elif sc.amstar2_met is not None:  tool_label += f" {sc.amstar2_met}/16"
             title_display = ed.title or r.filename or "Paper"
             ring_sm = _ring_html(pct, size=36, stroke=4)
-            border = _cat_border.get(sc.category, "#e2e5ea")
+            border_c, bg_c, bg_hover = _cat_colors.get(sc.category, ("#e2e5ea", "#ffffff", "#f7f8fa"))
             body = (
                 f'<div class="error-banner">❌ Analysis failed: {r.error}</div>'
                 if r.error else _render_result_html(r, r.filename)
             )
+            row_id = f"batch-row-{id(r)}"
             rows_html.append(
-                f'<details class="batch-detail-row" style="border-left:4px solid {border}">'
-                f'<summary class="batch-detail-summary">'
+                f'<details class="batch-detail-row" style="border-left:4px solid {border_c}">'
+                f'<summary class="batch-detail-summary" style="background:{bg_c}"'
+                f' onmouseover="this.style.background=\'{bg_hover}\'"'
+                f' onmouseout="this.style.background=\'{bg_c}\'">'
                 f'{ring_sm}'
                 f'<span class="cat-badge cat-{sc.category}" style="font-size:11px;flex-shrink:0">{sc.category_label}</span>'
                 f'<span style="font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{title_display}</span>'
