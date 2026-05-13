@@ -32,20 +32,23 @@ st.markdown(f"""
 <style>
 {_V2_CSS}
 
-/* Hide Streamlit chrome — keep header in DOM so sidebar toggle stays reachable */
+/* Hide Streamlit chrome.
+   IMPORTANT: use visibility:hidden (not display:none) on stHeader so that
+   child elements can override with visibility:visible — display:none blocks
+   all children unconditionally and prevents the sidebar toggle from working. */
 #MainMenu, footer {{ visibility: hidden; }}
 [data-testid="stHeader"] {{
+    visibility: hidden !important;
     height: 0 !important;
     min-height: 0 !important;
-    overflow: visible !important;
     padding: 0 !important;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
 }}
-[data-testid="stToolbar"] {{ display: none !important; }}
-.stDeployButton {{ display: none !important; }}
-div[data-testid="stDecoration"] {{ display: none !important; }}
+[data-testid="stToolbar"] {{ visibility: hidden !important; }}
+.stDeployButton {{ visibility: hidden !important; }}
+div[data-testid="stDecoration"] {{ visibility: hidden !important; }}
 
 /* Main padding */
 .block-container {{
@@ -61,21 +64,23 @@ div[data-testid="stDecoration"] {{ display: none !important; }}
     padding-top: 0 !important;
 }}
 
-/* Sidebar collapse/expand button — always visible and styled */
+/* Sidebar expand button (visible when sidebar is collapsed).
+   visibility:visible overrides the parent stHeader's visibility:hidden. */
 [data-testid="collapsedControl"] {{
-    display: flex !important;
     visibility: visible !important;
+    display: flex !important;
     opacity: 1 !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 9999 !important;
     background: var(--surface) !important;
     border: 1px solid var(--border) !important;
     border-left: none !important;
     border-radius: 0 8px 8px 0 !important;
     padding: 10px 5px !important;
     box-shadow: 2px 1px 6px rgba(0,0,0,0.08) !important;
-    top: 50% !important;
-    position: fixed !important;
-    left: 0 !important;
-    z-index: 9999 !important;
     cursor: pointer !important;
 }}
 [data-testid="collapsedControl"] svg {{
