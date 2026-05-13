@@ -286,11 +286,17 @@ def _badge(category: str, label: str) -> str:
     return f'<span class="cat-badge cat-{category}">{label}</span>'
 
 
-def _crit(code: str, ok) -> str:
+def _crit(code: str, label: str, ok) -> str:
     if ok is True:    cls, sym = "ok", "✓"
     elif ok is False: cls, sym = "no", "✗"
-    else:             cls, sym = "unknown", "·"
-    return f'<div class="crit {cls}"><span>{sym}</span><span>{code}</span></div>'
+    else:             cls, sym = "unknown", "?"
+    return (
+        f'<div class="crit-row {cls}">'
+        f'<span class="crit-sym">{sym}</span>'
+        f'<span class="crit-code">{code}</span>'
+        f'<span class="crit-label">{label}</span>'
+        f'</div>'
+    )
 
 
 def _banner(tone: str, icon: str, text: str, mod: str = "") -> str:
@@ -317,100 +323,125 @@ def _methodology_html(ed: ExtractedData, sc: ScoringBreakdown) -> str:
     if tool == "PEDro" and ed.pedro_criteria:
         p = ed.pedro_criteria
         crits = [
-            ("C1", p.c1_eligibility_specified), ("C2", p.c2_random_allocation),
-            ("C3", p.c3_concealed_allocation), ("C4", p.c4_baseline_comparable),
-            ("C5", p.c5_blinding_subjects), ("C6", p.c6_blinding_therapists),
-            ("C7", p.c7_blinding_assessors), ("C8", p.c8_adequate_followup),
-            ("C9", p.c9_intention_to_treat), ("C10", p.c10_between_group),
-            ("C11", p.c11_point_variability),
+            ("C1",  "Eligibility criteria specified",          p.c1_eligibility_specified),
+            ("C2",  "Random allocation",                       p.c2_random_allocation),
+            ("C3",  "Concealed allocation",                    p.c3_concealed_allocation),
+            ("C4",  "Baseline comparability",                  p.c4_baseline_comparable),
+            ("C5",  "Blinding of subjects",                    p.c5_blinding_subjects),
+            ("C6",  "Blinding of therapists",                  p.c6_blinding_therapists),
+            ("C7",  "Blinding of assessors",                   p.c7_blinding_assessors),
+            ("C8",  "Adequate follow-up (≥ 85%)",              p.c8_adequate_followup),
+            ("C9",  "Intention-to-treat analysis",             p.c9_intention_to_treat),
+            ("C10", "Between-group statistical comparison",    p.c10_between_group),
+            ("C11", "Point estimates and variability reported", p.c11_point_variability),
         ]
-        score = sc.pedro_score if sc.pedro_score is not None else sum(1 for _, v in crits[1:] if v is True)
+        score = sc.pedro_score if sc.pedro_score is not None else sum(1 for _, _, v in crits[1:] if v is True)
         bar = round(score / 10 * 100)
-        pills = "".join(_crit(k, v) for k, v in crits)
+        rows = "".join(_crit(code, label, val) for code, label, val in crits)
         return (
             f'<div class="card">'
             f'<div class="row between" style="margin-bottom:10px">'
             f'<div><span style="font-size:16px;font-weight:600">🔬 PEDro</span>'
-            f'<span class="muted" style="margin-left:8px;font-size:13px">scale 0–10</span></div>'
+            f'<span class="muted" style="margin-left:8px;font-size:13px">Physiotherapy Evidence Database scale · 0–10</span></div>'
             f'<div style="font-family:JetBrains Mono,monospace;font-size:20px;font-weight:700">'
             f'{score}<span class="muted" style="font-size:14px"> / 10</span></div></div>'
             f'<div style="height:6px;background:#e2e5ea;border-radius:3px;overflow:hidden;margin-bottom:4px">'
             f'<div style="width:{bar}%;height:100%;background:#475569"></div></div>'
-            f'<div class="crit-grid">{pills}</div>'
+            f'<p class="muted" style="font-size:11px;margin-top:6px">C1 determines eligibility but is not counted in the score (C2–C11 scored)</p>'
+            f'<div class="crit-list">{rows}</div>'
             f'</div>'
         )
 
     if tool == "AMSTAR-2" and ed.amstar2_criteria:
         a = ed.amstar2_criteria
+        critical = {"A2", "A4", "A7", "A9", "A11", "A13", "A15"}
         crits = [
-            ("A1", a.a1_pico), ("A2", a.a2_protocol_registered),
-            ("A3", a.a3_study_design_explained), ("A4", a.a4_comprehensive_search),
-            ("A5", a.a5_duplicate_selection), ("A6", a.a6_duplicate_extraction),
-            ("A7", a.a7_excluded_studies_listed), ("A8", a.a8_studies_described),
-            ("A9", a.a9_risk_of_bias_assessed), ("A10", a.a10_funding_reported),
-            ("A11", a.a11_statistical_methods), ("A12", a.a12_rob_impact_assessed),
-            ("A13", a.a13_rob_in_interpretation), ("A14", a.a14_heterogeneity_discussed),
-            ("A15", a.a15_publication_bias), ("A16", a.a16_coi_disclosed),
+            ("A1",  "PICO components in research question",     a.a1_pico),
+            ("A2",  "★ Protocol registered before the review",  a.a2_protocol_registered),
+            ("A3",  "Study design selection explained",         a.a3_study_design_explained),
+            ("A4",  "★ Comprehensive literature search",        a.a4_comprehensive_search),
+            ("A5",  "Study selection performed in duplicate",   a.a5_duplicate_selection),
+            ("A6",  "Data extraction performed in duplicate",   a.a6_duplicate_extraction),
+            ("A7",  "★ List of excluded studies with reasons",  a.a7_excluded_studies_listed),
+            ("A8",  "Included studies described in detail",     a.a8_studies_described),
+            ("A9",  "★ Risk of bias assessed",                  a.a9_risk_of_bias_assessed),
+            ("A10", "Funding sources of included studies",      a.a10_funding_reported),
+            ("A11", "★ Appropriate statistical methods",         a.a11_statistical_methods),
+            ("A12", "Impact of risk of bias assessed",          a.a12_rob_impact_assessed),
+            ("A13", "★ Risk of bias discussed in results",      a.a13_rob_in_interpretation),
+            ("A14", "Heterogeneity investigated",               a.a14_heterogeneity_discussed),
+            ("A15", "★ Publication bias assessed",              a.a15_publication_bias),
+            ("A16", "Conflicts of interest disclosed",          a.a16_coi_disclosed),
         ]
-        met = sc.amstar2_met if sc.amstar2_met is not None else sum(1 for _, v in crits if v is True)
+        met = sc.amstar2_met if sc.amstar2_met is not None else sum(1 for _, _, v in crits if v is True)
         bar = round(met / 16 * 100)
-        pills = "".join(_crit(k, v) for k, v in crits)
+        rows = "".join(_crit(code, label, val) for code, label, val in crits)
         return (
             f'<div class="card">'
             f'<div class="row between" style="margin-bottom:10px">'
             f'<div><span style="font-size:16px;font-weight:600">🔬 AMSTAR-2</span>'
-            f'<span class="muted" style="margin-left:8px;font-size:13px">16 criteria · 7 critical</span></div>'
+            f'<span class="muted" style="margin-left:8px;font-size:13px">Assessment of Multiple Systematic Reviews · 16 items</span></div>'
             f'<div style="font-family:JetBrains Mono,monospace;font-size:20px;font-weight:700">'
             f'{met}<span class="muted" style="font-size:14px"> / 16</span></div></div>'
             f'<div style="height:6px;background:#e2e5ea;border-radius:3px;overflow:hidden;margin-bottom:4px">'
             f'<div style="width:{bar}%;height:100%;background:#475569"></div></div>'
-            f'<div class="crit-grid">{pills}</div>'
-            f'<p class="muted" style="font-size:12px;margin-top:8px">★ Critical: A2, A4, A7, A9, A11, A13, A15 — weight ×1.5</p>'
+            f'<p class="muted" style="font-size:11px;margin-top:6px">★ = Critical domain (weight ×1.5 in scoring)</p>'
+            f'<div class="crit-list">{rows}</div>'
             f'</div>'
         )
 
     if tool == "NOS" and ed.nos_criteria:
         n = ed.nos_criteria
         crits = [
-            ("S1", n.s1_representativeness), ("S2", n.s2_non_exposed_selection),
-            ("S3", n.s3_exposure_ascertainment), ("S4", n.s4_outcome_not_present),
-            ("C1", n.c1_primary_factor), ("C2", n.c2_additional_factor),
-            ("O1", n.o1_outcome_assessment), ("O2", n.o2_followup_length),
-            ("O3", n.o3_followup_adequacy),
+            ("S1", "Selection — Representativeness of exposed cohort",   n.s1_representativeness),
+            ("S2", "Selection — Non-exposed cohort drawn from same community", n.s2_non_exposed_selection),
+            ("S3", "Selection — Ascertainment of exposure",              n.s3_exposure_ascertainment),
+            ("S4", "Selection — Outcome not present at start",           n.s4_outcome_not_present),
+            ("C1", "Comparability — Controls for primary factor",        n.c1_primary_factor),
+            ("C2", "Comparability — Controls for additional factor",     n.c2_additional_factor),
+            ("O1", "Outcome — Independent blind assessment",             n.o1_outcome_assessment),
+            ("O2", "Outcome — Follow-up long enough for outcome",        n.o2_followup_length),
+            ("O3", "Outcome — Adequacy of follow-up (low attrition)",    n.o3_followup_adequacy),
         ]
-        score = sc.nos_score if sc.nos_score is not None else sum(1 for _, v in crits if v is True)
+        score = sc.nos_score if sc.nos_score is not None else sum(1 for _, _, v in crits if v is True)
         bar = round(score / 9 * 100)
-        pills = "".join(_crit(k, v) for k, v in crits)
+        rows = "".join(_crit(code, label, val) for code, label, val in crits)
         return (
             f'<div class="card">'
             f'<div class="row between" style="margin-bottom:10px">'
-            f'<div><span style="font-size:16px;font-weight:600">🔬 Newcastle-Ottawa Scale</span></div>'
+            f'<div><span style="font-size:16px;font-weight:600">🔬 Newcastle-Ottawa Scale</span>'
+            f'<span class="muted" style="margin-left:8px;font-size:13px">Cohort &amp; Cross-Sectional · 9 stars</span></div>'
             f'<div style="font-family:JetBrains Mono,monospace;font-size:20px;font-weight:700">'
             f'{score}<span class="muted" style="font-size:14px"> / 9</span></div></div>'
             f'<div style="height:6px;background:#e2e5ea;border-radius:3px;overflow:hidden;margin-bottom:4px">'
             f'<div style="width:{bar}%;height:100%;background:#475569"></div></div>'
-            f'<div class="crit-grid">{pills}</div>'
+            f'<p class="muted" style="font-size:11px;margin-top:6px">Three domains: Selection (S1–S4), Comparability (C1–C2), Outcome (O1–O3)</p>'
+            f'<div class="crit-list">{rows}</div>'
             f'</div>'
         )
 
     if tool == "GRADE" and ed.grade_criteria:
         g = ed.grade_criteria
         crits = [
-            ("G1", g.g1_systematic_search), ("G2", g.g2_evidence_graded),
-            ("G3", g.g3_consensus_method), ("G4", g.g4_panel_composition),
-            ("G5", g.g5_coi_management), ("G6", g.g6_recommendation_strength),
-            ("G7", g.g7_evidence_gaps), ("G8", g.g8_external_review),
+            ("G1", "Systematic search strategy used",                g.g1_systematic_search),
+            ("G2", "Evidence quality explicitly graded",             g.g2_evidence_graded),
+            ("G3", "Formal consensus method (Delphi / nominal)",     g.g3_consensus_method),
+            ("G4", "Multidisciplinary panel composition",            g.g4_panel_composition),
+            ("G5", "Conflict of interest managed",                   g.g5_coi_management),
+            ("G6", "Strength of recommendations stated",             g.g6_recommendation_strength),
+            ("G7", "Evidence gaps and future research identified",   g.g7_evidence_gaps),
+            ("G8", "External peer review performed",                 g.g8_external_review),
         ]
-        met = sc.grade_met if sc.grade_met is not None else sum(1 for _, v in crits if v is True)
-        pills = "".join(_crit(k, v) for k, v in crits)
+        met = sc.grade_met if sc.grade_met is not None else sum(1 for _, _, v in crits if v is True)
+        rows = "".join(_crit(code, label, val) for code, label, val in crits)
         return (
             f'<div class="card">'
             f'<div class="row between" style="margin-bottom:10px">'
             f'<div><span style="font-size:16px;font-weight:600">🔬 GRADE</span>'
-            f'<span class="muted" style="margin-left:8px;font-size:13px">Consensus assessment</span></div>'
+            f'<span class="muted" style="margin-left:8px;font-size:13px">Grading of Recommendations Assessment · 8 items</span></div>'
             f'<div style="font-family:JetBrains Mono,monospace;font-size:20px;font-weight:700">'
             f'{met}<span class="muted" style="font-size:14px"> / 8</span></div></div>'
-            f'<div class="crit-grid">{pills}</div>'
+            f'<div class="crit-list">{rows}</div>'
             f'</div>'
         )
 

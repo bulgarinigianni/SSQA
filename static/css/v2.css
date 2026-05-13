@@ -339,6 +339,31 @@ body {
 .crit.no { background: #f9fafb; color: #9ca3af; border-color: var(--border); }
 .crit.unknown { background: #f9fafb; color: #d1d5db; border-color: var(--border); }
 
+/* Criteria detail rows (verbose mode with full labels) */
+.crit-list { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
+.crit-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: 5px;
+  font-size: 12.5px; line-height: 1.4;
+  border-left: 3px solid transparent;
+}
+.crit-row.ok { background: var(--green-bg); border-left-color: var(--green); }
+.crit-row.no { background: #fef2f2; border-left-color: #fca5a5; }
+.crit-row.unknown { background: #f9fafb; border-left-color: #d1d5db; }
+.crit-sym {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 12px; flex-shrink: 0;
+}
+.crit-row.ok .crit-sym { background: var(--green); color: white; }
+.crit-row.no .crit-sym { background: #fca5a5; color: #7f1d1d; }
+.crit-row.unknown .crit-sym { background: #d1d5db; color: #6b7280; }
+.crit-code {
+  font-family: var(--mono); font-weight: 700; font-size: 11px;
+  min-width: 28px; flex-shrink: 0; color: var(--text);
+}
+.crit-label { color: var(--text); flex: 1; }
+
 /* Metrics grid */
 .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .metric {
