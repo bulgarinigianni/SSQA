@@ -33,9 +33,9 @@ st.markdown(f"""
 {_V2_CSS}
 
 /* Hide Streamlit chrome.
-   IMPORTANT: use visibility:hidden (not display:none) on stHeader so that
-   child elements can override with visibility:visible — display:none blocks
-   all children unconditionally and prevents the sidebar toggle from working. */
+   In Streamlit 1.57 the sidebar expand button is data-testid="stExpandSidebarButton"
+   and lives inside stHeader > stToolbar. Use visibility:hidden (NOT display:none)
+   so the button child can override with visibility:visible. */
 #MainMenu, footer {{ visibility: hidden; }}
 [data-testid="stHeader"] {{
     visibility: hidden !important;
@@ -46,9 +46,13 @@ st.markdown(f"""
     border: none !important;
     box-shadow: none !important;
 }}
-[data-testid="stToolbar"] {{ visibility: hidden !important; }}
-.stDeployButton {{ visibility: hidden !important; }}
-div[data-testid="stDecoration"] {{ visibility: hidden !important; }}
+[data-testid="stToolbar"] {{
+    visibility: hidden !important;
+    background: transparent !important;
+}}
+[data-testid="stAppDeployButton"], .stDeployButton {{ display: none !important; }}
+[data-testid="stMainMenuButton"] {{ display: none !important; }}
+div[data-testid="stDecoration"] {{ display: none !important; }}
 
 /* Main padding */
 .block-container {{
@@ -64,30 +68,32 @@ div[data-testid="stDecoration"] {{ visibility: hidden !important; }}
     padding-top: 0 !important;
 }}
 
-/* Sidebar expand button (visible when sidebar is collapsed).
-   visibility:visible overrides the parent stHeader's visibility:hidden. */
-[data-testid="collapsedControl"] {{
+/* Sidebar expand button (Streamlit 1.40+ uses stExpandSidebarButton).
+   Re-enable visibility on the button + all descendants since the entire
+   stHeader / stToolbar chain is visibility:hidden. Position fixed so it
+   shows even when stHeader has height:0. */
+[data-testid="stExpandSidebarButton"],
+[data-testid="stExpandSidebarButton"] * {{
     visibility: visible !important;
-    display: flex !important;
     opacity: 1 !important;
+}}
+[data-testid="stExpandSidebarButton"] {{
+    display: inline-flex !important;
     position: fixed !important;
-    left: 0 !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
+    left: 10px !important;
+    top: 10px !important;
     z-index: 9999 !important;
     background: var(--surface) !important;
     border: 1px solid var(--border) !important;
-    border-left: none !important;
-    border-radius: 0 8px 8px 0 !important;
-    padding: 10px 5px !important;
-    box-shadow: 2px 1px 6px rgba(0,0,0,0.08) !important;
+    border-radius: 8px !important;
+    padding: 6px 8px !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08) !important;
     cursor: pointer !important;
-}}
-[data-testid="collapsedControl"] svg {{
-    fill: var(--accent) !important;
     color: var(--accent) !important;
-    width: 18px !important;
-    height: 18px !important;
+}}
+[data-testid="stExpandSidebarButton"]:hover {{
+    background: #f0f5ff !important;
+    border-color: var(--accent) !important;
 }}
 
 /* Streamlit buttons → V2 style */
