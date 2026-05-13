@@ -96,6 +96,34 @@ div[data-testid="stDecoration"] {{ display: none !important; }}
     border-color: var(--accent) !important;
 }}
 
+/* Batch custom detail rows */
+.batch-detail-row {{
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 6px;
+    box-shadow: var(--shadow);
+}}
+.batch-detail-summary {{
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    list-style: none;
+    gap: 12px;
+    background: var(--surface);
+    user-select: none;
+}}
+.batch-detail-summary::-webkit-details-marker {{ display: none; }}
+.batch-detail-summary::marker {{ display: none; }}
+.batch-detail-summary:hover {{ background: #f7f8fa; }}
+.batch-detail-row[open] > .batch-detail-summary {{ border-bottom: 1px solid var(--border); }}
+.batch-detail-body {{ padding: 16px; }}
+.batch-toggle-icon {{ font-size: 12px; color: var(--text-secondary); margin-left: auto; flex-shrink: 0; }}
+.batch-detail-row[open] .batch-toggle-icon::before {{ content: "▴ Close"; }}
+.batch-detail-row:not([open]) .batch-toggle-icon::before {{ content: "Details →"; }}
+
 /* Streamlit buttons → V2 style */
 .stButton > button[kind="primary"] {{
     background: var(--accent) !important; color: white !important;
@@ -650,8 +678,14 @@ with st.sidebar:
     <div class="scale-row"><span class="cat-badge cat-black_flag" style="font-size:11px;padding:3px 10px">🏴 Black Flag</span><span class="rng">predatory</span></div>
 
     <div style="border-top:1px solid var(--border);margin:1rem 0"></div>
+
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
-                color:var(--text-secondary);margin-bottom:10px">Quality % (ring)</div>
+                color:var(--text-secondary);margin-bottom:6px">Quality % (ring)</div>
+    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;line-height:1.5">
+      Score as&nbsp;% of the design cap&nbsp;(e.g.&nbsp;6.5&nbsp;/&nbsp;7&nbsp;=&nbsp;93%).
+      Allows fair comparison across study types with different caps (RCT max 10,
+      Case Study max 5, etc.).
+    </div>
     <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:1rem">
       <span class="chip chip-gold">Excellent ≥ 85%</span>
       <span class="chip chip-silver">Good 70–84%</span>
@@ -814,17 +848,39 @@ with tab_single:
     if uploaded_single:
         if st.button("Analyze Paper", type="primary", key="btn_single"):
             api_key = _resolve_key()
-            with st.spinner("Gemini is analyzing the paper..."):
-                try:
-                    result = _analyze_one(uploaded_single.read(), uploaded_single.name, api_key)
-                    st.session_state["single_result"] = result
-                    st.session_state["single_filename"] = uploaded_single.name
-                except QuotaExhaustedError:
-                    st.error("Gemini API quota exhausted. Try again later or use a different key.")
-                    st.stop()
-                except InvalidAPIKeyError:
-                    st.error("Invalid Gemini API key. Verify it at https://aistudio.google.com/apikey")
-                    st.stop()
+            prog = st.progress(0, text="Sending PDF to Gemini…")
+            import threading, time as _time
+
+            _done = {"v": False}
+            def _tick():
+                steps = [
+                    (0.15, "Extracting text and metadata…"),
+                    (0.35, "Identifying study design…"),
+                    (0.55, "Running methodology checklist…"),
+                    (0.72, "Calculating bonuses & penalties…"),
+                    (0.88, "Finalising score…"),
+                ]
+                for frac, msg in steps:
+                    if _done["v"]:
+                        return
+                    prog.progress(frac, text=msg)
+                    _time.sleep(4)
+            t = threading.Thread(target=_tick, daemon=True)
+            t.start()
+            try:
+                result = _analyze_one(uploaded_single.read(), uploaded_single.name, api_key)
+                _done["v"] = True
+                prog.progress(1.0, text="Done!")
+                st.session_state["single_result"] = result
+                st.session_state["single_filename"] = uploaded_single.name
+            except QuotaExhaustedError:
+                _done["v"] = True
+                st.error("Gemini API quota exhausted. Try again later or use a different key.")
+                st.stop()
+            except InvalidAPIKeyError:
+                _done["v"] = True
+                st.error("Invalid Gemini API key. Verify it at https://aistudio.google.com/apikey")
+                st.stop()
 
     if "single_result" in st.session_state:
         r: AnalysisResult = st.session_state["single_result"]
@@ -833,11 +889,15 @@ with tab_single:
         if r.error:
             st.error(f"❌ Analysis failed: {r.error}")
         else:
+            title_display = r.extracted.title or fname
             st.html(f"""
             <div class="row between" style="margin:12px 0">
-              <div class="row">
-                <span class="eyebrow">FILE</span>
-                <span style="font-weight:600;max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{fname}</span>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <div class="row">
+                  <span class="eyebrow">PAPER</span>
+                  <span style="font-weight:600;max-width:600px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{title_display}</span>
+                </div>
+                <div style="font-size:11px;color:var(--text-secondary);margin-left:4px">📄 {fname}</div>
               </div>
             </div>
             """)
@@ -924,6 +984,16 @@ with tab_batch:
         )
         st.html(f'<div class="summary-row" style="margin-bottom:16px">{pills_html}</div>')
 
+        _cat_border = {
+            "gold_standard":      "#d97706",
+            "practical_evidence": "#2563eb",
+            "exploratory":        "#7c3aed",
+            "weak":               "#f59e0b",
+            "black_flag":         "#111827",
+            "error":              "#dc2626",
+        }
+
+        rows_html: list[str] = []
         for r in results_sorted:
             sc = r.scoring
             ed = r.extracted
@@ -933,10 +1003,25 @@ with tab_batch:
             elif sc.nos_score is not None:    tool_label += f" {sc.nos_score}/9"
             elif sc.amstar2_met is not None:  tool_label += f" {sc.amstar2_met}/16"
             title_display = ed.title or r.filename or "Paper"
-            exp_label = f"{sc.category_label} · {sc.final_score:.1f}/{sc.design_cap:.1f} · {title_display[:60]}"
+            ring_sm = _ring_html(pct, size=36, stroke=4)
+            border = _cat_border.get(sc.category, "#e2e5ea")
+            body = (
+                f'<div class="error-banner">❌ Analysis failed: {r.error}</div>'
+                if r.error else _render_result_html(r, r.filename)
+            )
+            rows_html.append(
+                f'<details class="batch-detail-row" style="border-left:4px solid {border}">'
+                f'<summary class="batch-detail-summary">'
+                f'{ring_sm}'
+                f'<span class="cat-badge cat-{sc.category}" style="font-size:11px;flex-shrink:0">{sc.category_label}</span>'
+                f'<span style="font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{title_display}</span>'
+                f'<span class="meta" style="flex-shrink:0">{tool_label}</span>'
+                f'<span class="score" style="flex-shrink:0">{sc.final_score:.1f}'
+                f'<span class="cap">/{sc.design_cap:.1f}</span></span>'
+                f'<span class="batch-toggle-icon"></span>'
+                f'</summary>'
+                f'<div class="batch-detail-body">{body}</div>'
+                f'</details>'
+            )
 
-            with st.expander(exp_label):
-                if r.error:
-                    st.error(f"Analysis failed: {r.error}")
-                else:
-                    st.html(_render_result_html(r, r.filename))
+        st.html('<div style="display:flex;flex-direction:column;gap:0">' + "".join(rows_html) + "</div>")
