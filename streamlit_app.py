@@ -150,21 +150,38 @@ div[data-testid="stDecoration"] {{ display: none !important; }}
     background: #f0f5ff !important;
 }}
 
-/* Segmented control (tab replacement) */
-[data-testid="stSegmentedControl"] {{
-    margin-bottom: 12px !important;
+/* Radio tab selector */
+div[data-testid="stRadio"] > div {{
+    flex-direction: row !important;
+    gap: 0 !important;
 }}
-[data-testid="stSegmentedControl"] button {{
+div[data-testid="stRadio"] > div > label {{
     font-family: var(--font) !important;
     font-size: 13px !important;
     font-weight: 500 !important;
-    padding: 10px 20px !important;
-    border-radius: 6px !important;
+    padding: 10px 22px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 0 !important;
+    cursor: pointer !important;
+    background: var(--surface) !important;
+    color: var(--text-secondary) !important;
+    margin: 0 !important;
 }}
-[data-testid="stSegmentedControl"] button[aria-pressed="true"] {{
+div[data-testid="stRadio"] > div > label:first-child {{
+    border-radius: 6px 0 0 6px !important;
+}}
+div[data-testid="stRadio"] > div > label:last-child {{
+    border-radius: 0 6px 6px 0 !important;
+    border-left: none !important;
+}}
+div[data-testid="stRadio"] > div > label[data-checked="true"],
+div[data-testid="stRadio"] > div > label:has(input:checked) {{
     background: var(--accent) !important;
     color: white !important;
     border-color: var(--accent) !important;
+}}
+div[data-testid="stRadio"] > div > label > div:first-child {{
+    display: none !important;
 }}
 
 /* Progress */
@@ -844,8 +861,8 @@ with st.sidebar:
             <span style="color:var(--text-secondary)">If data cannot be reliably extracted, it is left null — never invented.</span>
           </div>
           <div>
-            <span style="font-weight:600">Quality % explained</span><br>
-            <span style="color:var(--text-secondary)">Score as % of the design cap (e.g. 6.5/7 = 93%). Enables fair comparison across study types regardless of design caps.</span>
+            <span style="font-weight:600">Design Cap</span><br>
+            <span style="color:var(--text-secondary)">Each study design has a maximum possible score (e.g. RCT max 10, Case Study max 5). Stronger designs can reach higher scores.</span>
           </div>
         </div>
         """)
@@ -866,9 +883,10 @@ st.html("""
 </div>
 """)
 
-tab_active = st.segmented_control(
-    "Mode", ["Single PDF", "Batch Analysis"],
-    default="Single PDF",
+tab_active = st.radio(
+    "Mode",
+    ["Single PDF", "Batch Analysis"],
+    horizontal=True,
     key="main_tab",
     label_visibility="collapsed",
 )
