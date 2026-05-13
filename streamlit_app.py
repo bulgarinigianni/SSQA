@@ -32,9 +32,17 @@ st.markdown(f"""
 <style>
 {_V2_CSS}
 
-/* Hide Streamlit chrome */
+/* Hide Streamlit chrome — keep header in DOM so sidebar toggle stays reachable */
 #MainMenu, footer {{ visibility: hidden; }}
-[data-testid="stHeader"] {{ display: none !important; }}
+[data-testid="stHeader"] {{
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}}
 [data-testid="stToolbar"] {{ display: none !important; }}
 .stDeployButton {{ display: none !important; }}
 div[data-testid="stDecoration"] {{ display: none !important; }}
