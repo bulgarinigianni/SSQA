@@ -53,6 +53,30 @@ div[data-testid="stDecoration"] {{ display: none !important; }}
     padding-top: 0 !important;
 }}
 
+/* Sidebar collapse/expand button — always visible and styled */
+[data-testid="collapsedControl"] {{
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-left: none !important;
+    border-radius: 0 8px 8px 0 !important;
+    padding: 10px 5px !important;
+    box-shadow: 2px 1px 6px rgba(0,0,0,0.08) !important;
+    top: 50% !important;
+    position: fixed !important;
+    left: 0 !important;
+    z-index: 9999 !important;
+    cursor: pointer !important;
+}}
+[data-testid="collapsedControl"] svg {{
+    fill: var(--accent) !important;
+    color: var(--accent) !important;
+    width: 18px !important;
+    height: 18px !important;
+}}
+
 /* Streamlit buttons → V2 style */
 .stButton > button[kind="primary"] {{
     background: var(--accent) !important; color: white !important;
@@ -119,9 +143,6 @@ details[data-testid="stExpander"] summary {{
 
 
 # ── Persistent API key via browser localStorage ──────────────────────────
-# On first load, read the saved key from the user's browser.
-# streamlit_js_eval returns None on the very first render (needs a round-trip),
-# then returns the actual value on the next render cycle.
 if "api_key" not in st.session_state:
     stored = streamlit_js_eval(
         js_expressions='localStorage.getItem("gemini_api_key") || ""',
@@ -132,7 +153,6 @@ if "api_key" not in st.session_state:
 
 
 def _save_key_to_browser(key: str):
-    """Persist key to browser localStorage so it survives refresh/reconnect."""
     safe = json.dumps(key)
     streamlit_js_eval(
         js_expressions=f"localStorage.setItem('gemini_api_key', {safe})",
@@ -168,7 +188,7 @@ def _analyze_one(pdf_bytes: bytes, filename: str, api_key: str) -> AnalysisResul
                 design_category="other", design_cap=0,
                 base_methodology_score=0, raw_score=0, final_score=0,
                 category="error", category_label="ERROR",
-                explanation=f"Analisi fallita: {exc}",
+                explanation=f"Analysis failed: {exc}",
             ),
             confidence=ConfidenceReport(
                 total_fields=0, extracted_fields=0,
@@ -183,7 +203,7 @@ def _analyze_one(pdf_bytes: bytes, filename: str, api_key: str) -> AnalysisResul
 def _resolve_key() -> str:
     key = st.session_state.get("api_key", "").strip() or settings.gemini_api_key
     if not key:
-        st.error("Nessuna API key Gemini. Inseriscila nella sidebar prima di procedere.")
+        st.error("No Gemini API key configured. Paste your key in the sidebar before analyzing.")
         st.stop()
     return key
 
@@ -219,7 +239,7 @@ def _badge(category: str, label: str) -> str:
 
 
 def _crit(code: str, ok) -> str:
-    if ok is True:   cls, sym = "ok", "✓"
+    if ok is True:    cls, sym = "ok", "✓"
     elif ok is False: cls, sym = "no", "✗"
     else:             cls, sym = "unknown", "·"
     return f'<div class="crit {cls}"><span>{sym}</span><span>{code}</span></div>'
@@ -263,7 +283,7 @@ def _methodology_html(ed: ExtractedData, sc: ScoringBreakdown) -> str:
             f'<div class="card">'
             f'<div class="row between" style="margin-bottom:10px">'
             f'<div><span style="font-size:16px;font-weight:600">🔬 PEDro</span>'
-            f'<span class="muted" style="margin-left:8px;font-size:13px">scala 0–10</span></div>'
+            f'<span class="muted" style="margin-left:8px;font-size:13px">scale 0–10</span></div>'
             f'<div style="font-family:JetBrains Mono,monospace;font-size:20px;font-weight:700">'
             f'{score}<span class="muted" style="font-size:14px"> / 10</span></div></div>'
             f'<div style="height:6px;background:#e2e5ea;border-radius:3px;overflow:hidden;margin-bottom:4px">'
@@ -291,13 +311,13 @@ def _methodology_html(ed: ExtractedData, sc: ScoringBreakdown) -> str:
             f'<div class="card">'
             f'<div class="row between" style="margin-bottom:10px">'
             f'<div><span style="font-size:16px;font-weight:600">🔬 AMSTAR-2</span>'
-            f'<span class="muted" style="margin-left:8px;font-size:13px">16 criteri · 7 critici</span></div>'
+            f'<span class="muted" style="margin-left:8px;font-size:13px">16 criteria · 7 critical</span></div>'
             f'<div style="font-family:JetBrains Mono,monospace;font-size:20px;font-weight:700">'
             f'{met}<span class="muted" style="font-size:14px"> / 16</span></div></div>'
             f'<div style="height:6px;background:#e2e5ea;border-radius:3px;overflow:hidden;margin-bottom:4px">'
             f'<div style="width:{bar}%;height:100%;background:#475569"></div></div>'
             f'<div class="crit-grid">{pills}</div>'
-            f'<p class="muted" style="font-size:12px;margin-top:8px">★ Critici: A2, A4, A7, A9, A11, A13, A15 — peso ×1.5</p>'
+            f'<p class="muted" style="font-size:12px;margin-top:8px">★ Critical: A2, A4, A7, A9, A11, A13, A15 — weight ×1.5</p>'
             f'</div>'
         )
 
@@ -373,7 +393,6 @@ def _render_result_html(r: AnalysisResult, filename: str) -> str:
     elif sc.amstar2_met is not None:  tool_label += f" {sc.amstar2_met}/16"
     elif sc.grade_met is not None:    tool_label += f" {sc.grade_met}/8"
 
-    # Sample stat
     sample_html = ""
     if ed.sample_size:
         pop = (ed.population_type or "").replace("_", " ")
@@ -381,14 +400,14 @@ def _render_result_html(r: AnalysisResult, filename: str) -> str:
             f'<div style="border-left:1px solid #e2e5ea"></div>'
             f'<div class="score-stat">'
             f'<div class="num" style="font-size:20px">n={ed.sample_size}</div>'
-            f'<div class="lbl">{pop or "partecipanti"}</div>'
+            f'<div class="lbl">{pop or "participants"}</div>'
             f'</div>'
         )
 
     subtitle_html = f'<div class="result-subtitle">{subtitle}</div>' if subtitle else ""
     verdict_html = (
         f'<div class="explanation">'
-        f'<strong class="eyebrow">Verdetto AI</strong>'
+        f'<strong class="eyebrow">AI Verdict</strong>'
         f'{sc.explanation}'
         f'</div>'
     ) if sc.explanation else ""
@@ -428,7 +447,7 @@ def _render_result_html(r: AnalysisResult, filename: str) -> str:
     if sc.journal_bonus > 0:
         banners.append(_banner("purple", "🏆", f"<b>Elite journal</b> · {sc.journal_match or ed.journal or ''}", f"+{sc.journal_bonus:.1f}"))
     if sc.registered_protocol_bonus > 0:
-        banners.append(_banner("green", "✓", "<b>Protocollo registrato a priori</b> (ClinicalTrials.gov / PROSPERO / OSF)", f"+{sc.registered_protocol_bonus:.1f}"))
+        banners.append(_banner("green", "✓", "<b>Registered protocol</b> (ClinicalTrials.gov / PROSPERO / OSF)", f"+{sc.registered_protocol_bonus:.1f}"))
     if sample_bonus > 0:
         pop = (ed.population_type or "").replace("_", " ")
         banners.append(_banner("blue", "★", f"<b>Sample bonus</b> · {pop or f'n={ed.sample_size}'}", f"+{sample_bonus:.1f}"))
@@ -479,7 +498,7 @@ def _render_result_html(r: AnalysisResult, filename: str) -> str:
     if sc.journal_bonus > 0:
         brk_rows.append(_brk("Elite journal", f"+{sc.journal_bonus:.1f}", note=sc.journal_match or ""))
     if sc.registered_protocol_bonus > 0:
-        brk_rows.append(_brk("Protocol registered", f"+{sc.registered_protocol_bonus:.1f}"))
+        brk_rows.append(_brk("Registered protocol", f"+{sc.registered_protocol_bonus:.1f}"))
     if sc.coi_penalty:
         brk_rows.append(_brk("CoI penalty", f"{sc.coi_penalty:.1f}", muted=True))
     if sc.predatory_journal_detected:
@@ -511,9 +530,9 @@ def _render_result_html(r: AnalysisResult, filename: str) -> str:
     # Funding & COI
     funding_html = ""
     if ed.funding_sources or ed.conflict_of_interest_statement:
-        funders = ", ".join(ed.funding_sources) if ed.funding_sources else "Non dichiarato"
+        funders = ", ".join(ed.funding_sources) if ed.funding_sources else "Not reported"
         coi = ed.conflict_of_interest_statement or ""
-        coi_part = f'<div class="muted" style="font-size:12.5px;margin-top:4px">CoI: {coi}</div>' if coi else ""
+        coi_part = f'<div class="muted" style="font-size:12.5px;margin-top:4px">COI: {coi}</div>' if coi else ""
         funding_html = (
             f'<div class="card compact">'
             f'<div class="eyebrow" style="margin-bottom:4px">Funding</div>'
@@ -584,32 +603,32 @@ with st.sidebar:
 
     key_set = bool(st.session_state.get("api_key"))
     dot_color = "#059669" if key_set else "#dc2626"
-    key_text = "Salvata nel browser ✓" if key_set else "Mancante"
+    key_text = "Saved in browser ✓" if key_set else "Not configured"
     st.html(f"""
     <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:4px">
       <div style="width:7px;height:7px;border-radius:50%;background:{dot_color}"></div>
       {key_text}
     </div>
     <div style="font-size:10px;color:var(--text-secondary);margin-bottom:6px">
-      La chiave viene salvata nel tuo browser (localStorage) — non viene condivisa con altri utenti.
+      Stored in your browser only — never shared with other users.
     </div>
     <a href="https://aistudio.google.com/apikey" target="_blank"
        style="font-size:11px;color:var(--accent);text-decoration:none">
-      Ottieni chiave gratuita →
+      Get a free key at Google AI Studio →
     </a>
     """)
 
     st.html('<div style="border-top:1px solid var(--border);margin:1rem 0"></div>')
 
-    # Verdict scale
+    # ── Verdict scale ──────────────────────────────────────────────────────
     st.html("""
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
                 color:var(--text-secondary);margin-bottom:10px">Verdict Scale</div>
-    <div class="scale-row"><span class="cat-badge cat-gold_standard" style="font-size:11px;padding:3px 10px">🥇 Gold</span><span class="rng">≥ 8.5</span></div>
-    <div class="scale-row"><span class="cat-badge cat-practical_evidence" style="font-size:11px;padding:3px 10px">🔵 Practical</span><span class="rng">7.0–8.4</span></div>
-    <div class="scale-row"><span class="cat-badge cat-exploratory" style="font-size:11px;padding:3px 10px">🔬 Explor.</span><span class="rng">5.0–6.9</span></div>
+    <div class="scale-row"><span class="cat-badge cat-gold_standard" style="font-size:11px;padding:3px 10px">🥇 Gold Standard</span><span class="rng">≥ 8.5</span></div>
+    <div class="scale-row"><span class="cat-badge cat-practical_evidence" style="font-size:11px;padding:3px 10px">🔵 Practical Evidence</span><span class="rng">7.0–8.4</span></div>
+    <div class="scale-row"><span class="cat-badge cat-exploratory" style="font-size:11px;padding:3px 10px">🔬 Exploratory</span><span class="rng">5.0–6.9</span></div>
     <div class="scale-row"><span class="cat-badge cat-weak" style="font-size:11px;padding:3px 10px">⚠️ Weak</span><span class="rng">&lt; 5.0</span></div>
-    <div class="scale-row"><span class="cat-badge cat-black_flag" style="font-size:11px;padding:3px 10px">🏴 Black</span><span class="rng">predatory</span></div>
+    <div class="scale-row"><span class="cat-badge cat-black_flag" style="font-size:11px;padding:3px 10px">🏴 Black Flag</span><span class="rng">predatory</span></div>
 
     <div style="border-top:1px solid var(--border);margin:1rem 0"></div>
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
@@ -621,29 +640,130 @@ with st.sidebar:
       <span class="chip chip-blue">Poor 30–49%</span>
       <span class="chip chip-black">Critical &lt; 30%</span>
     </div>
-
-    <div style="border-top:1px solid var(--border);margin:1rem 0"></div>
-    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
-                color:var(--text-secondary);margin-bottom:10px">Methodology Tools</div>
-    <div class="method-row"><strong>PEDro</strong><span class="arrow">→</span><span class="applies">RCT</span></div>
-    <div class="method-row"><strong>AMSTAR-2</strong><span class="arrow">→</span><span class="applies">Meta / SR</span></div>
-    <div class="method-row"><strong>NOS</strong><span class="arrow">→</span><span class="applies">Cohort / CS</span></div>
-    <div class="method-row"><strong>GRADE</strong><span class="arrow">→</span><span class="applies">Consensus</span></div>
-    <div class="method-row"><strong>Generic</strong><span class="arrow">→</span><span class="applies">Case / Review</span></div>
-
-    <div style="border-top:1px solid var(--border);margin:1rem 0"></div>
-    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
-                color:var(--text-secondary);margin-bottom:8px">Bonuses / Penalties</div>
-    <div style="font-size:12px;line-height:1.9;color:var(--text-secondary)">
-      Elite institution <span style="font-family:monospace;color:#059669">+0.5</span><br>
-      Elite journal <span style="font-family:monospace;color:#059669">+0.5</span><br>
-      Registered protocol <span style="font-family:monospace;color:#059669">+0.5</span><br>
-      N ≥ 100 <span style="font-family:monospace;color:#059669">+0.4</span><br>
-      N ≥ 50 <span style="font-family:monospace;color:#059669">+0.3</span><br>
-      CoI obvio <span style="font-family:monospace;color:#dc2626">−3.0</span><br>
-      Predatory <span style="font-family:monospace;color:#dc2626">→ 1.0</span>
-    </div>
     """)
+
+    st.html('<div style="border-top:1px solid var(--border);margin:1rem 0"></div>')
+
+    # ── Scoring reference (full) ───────────────────────────────────────────
+    with st.expander("📐 Study Design Caps"):
+        st.html("""
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="text-align:left;padding:4px 0;color:var(--text-secondary);font-weight:600">Design</th>
+              <th style="text-align:right;padding:4px 0;color:var(--text-secondary);font-weight:600">Max</th>
+            </tr>
+          </thead>
+          <tbody style="color:var(--text)">
+            <tr><td style="padding:4px 0">Meta-Analysis</td><td style="text-align:right;font-family:monospace;font-weight:600">10</td></tr>
+            <tr><td style="padding:4px 0">Systematic Review</td><td style="text-align:right;font-family:monospace;font-weight:600">10</td></tr>
+            <tr><td style="padding:4px 0">RCT</td><td style="text-align:right;font-family:monospace;font-weight:600">10</td></tr>
+            <tr><td style="padding:4px 0">Consensus Statement</td><td style="text-align:right;font-family:monospace;font-weight:600">9</td></tr>
+            <tr><td style="padding:4px 0">Prospective Cohort</td><td style="text-align:right;font-family:monospace;font-weight:600">8</td></tr>
+            <tr><td style="padding:4px 0">Cross-Sectional</td><td style="text-align:right;font-family:monospace;font-weight:600">7</td></tr>
+            <tr><td style="padding:4px 0">Narrative Review / Expert Opinion</td><td style="text-align:right;font-family:monospace;font-weight:600">6</td></tr>
+            <tr><td style="padding:4px 0">Case Series</td><td style="text-align:right;font-family:monospace;font-weight:600">5.5</td></tr>
+            <tr><td style="padding:4px 0">Case Study</td><td style="text-align:right;font-family:monospace;font-weight:600">5</td></tr>
+          </tbody>
+        </table>
+        """)
+
+    with st.expander("💰 Bonuses & Penalties"):
+        st.html("""
+        <div style="font-size:12px;line-height:2;color:var(--text)">
+          <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:4px;color:var(--text-secondary);font-weight:600;font-size:11px">
+            <span>Modifier</span><span>Value</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span>Elite institution</span>
+            <span style="font-family:monospace;color:#059669;font-weight:600">+0.5</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span>Elite journal</span>
+            <span style="font-family:monospace;color:#059669;font-weight:600">+0.5</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span>Registered protocol</span>
+            <span style="font-family:monospace;color:#059669;font-weight:600">+0.5</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span>Large sample (N ≥ 100)</span>
+            <span style="font-family:monospace;color:#059669;font-weight:600">+0.4</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span>Good sample (N ≥ 50)</span>
+            <span style="font-family:monospace;color:#059669;font-weight:600">+0.3</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;border-top:1px dashed var(--border);margin-top:4px;padding-top:4px">
+            <span>Obvious COI (+ nullifies bonuses)</span>
+            <span style="font-family:monospace;color:#dc2626;font-weight:600">−3.0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span>Small sample (N &lt; 20)</span>
+            <span style="font-family:monospace;color:#dc2626;font-weight:600">−0.5</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span>Very small sample (N &lt; 10)</span>
+            <span style="font-family:monospace;color:#dc2626;font-weight:600">−1.0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span>Predatory journal</span>
+            <span style="font-family:monospace;color:#dc2626;font-weight:600">→ 1.0</span>
+          </div>
+        </div>
+        """)
+
+    with st.expander("🔬 Methodology Tools"):
+        st.html("""
+        <div style="font-size:12px;color:var(--text);line-height:1.6">
+          <div style="margin-bottom:10px">
+            <div style="font-weight:600;margin-bottom:2px">PEDro <span style="color:var(--text-secondary);font-weight:400">→ RCTs</span></div>
+            <div style="color:var(--text-secondary)">11 items (C1 descriptive, C2–C11 scored). Sum of C2–C11 ÷ 10 × design cap.</div>
+          </div>
+          <div style="margin-bottom:10px">
+            <div style="font-weight:600;margin-bottom:2px">AMSTAR-2 <span style="color:var(--text-secondary);font-weight:400">→ Systematic Reviews &amp; Meta-Analyses</span></div>
+            <div style="color:var(--text-secondary)">16 items, 7 critical (A2, A4, A7, A9, A11, A13, A15). Critical ×1.5, others ×1.0.</div>
+          </div>
+          <div style="margin-bottom:10px">
+            <div style="font-weight:600;margin-bottom:2px">NOS <span style="color:var(--text-secondary);font-weight:400">→ Cohort &amp; Cross-Sectional</span></div>
+            <div style="color:var(--text-secondary)">9 stars: Selection (S1–S4), Comparability (C1–C2), Outcome (O1–O3).</div>
+          </div>
+          <div style="margin-bottom:10px">
+            <div style="font-weight:600;margin-bottom:2px">GRADE <span style="color:var(--text-secondary);font-weight:400">→ Consensus Statements</span></div>
+            <div style="color:var(--text-secondary)">8 items: search, grading, method, panel, COI, strength, gaps, review.</div>
+          </div>
+          <div>
+            <div style="font-weight:600;margin-bottom:2px">Generic <span style="color:var(--text-secondary);font-weight:400">→ All other designs</span></div>
+            <div style="color:var(--text-secondary)">Starts at 60% of cap, adjusted by sample size, effect sizes, CIs.</div>
+          </div>
+        </div>
+        """)
+
+    with st.expander("📋 Special Rules"):
+        st.html("""
+        <div style="font-size:12px;color:var(--text);line-height:1.7">
+          <div style="margin-bottom:8px">
+            <span style="font-weight:600">Elite Athlete Exception</span><br>
+            <span style="color:var(--text-secondary)">Small sample penalty waived when population is elite/professional (e.g. N=15 national team players).</span>
+          </div>
+          <div style="margin-bottom:8px">
+            <span style="font-weight:600">COI Filter</span><br>
+            <span style="color:var(--text-secondary)">Only applied when COI is <em>obvious</em> (funder undeniably sells the tested product). Ambiguous COI is flagged but not penalized.</span>
+          </div>
+          <div style="margin-bottom:8px">
+            <span style="font-weight:600">Black Flag</span><br>
+            <span style="color:var(--text-secondary)">Reserved exclusively for predatory journals. Score forced to 1.0. COI alone does not trigger Black Flag.</span>
+          </div>
+          <div style="margin-bottom:8px">
+            <span style="font-weight:600">Null-on-Unknown</span><br>
+            <span style="color:var(--text-secondary)">If data cannot be reliably extracted, it is left null — never invented.</span>
+          </div>
+          <div>
+            <span style="font-weight:600">Quality % explained</span><br>
+            <span style="color:var(--text-secondary)">Score as % of the design cap (e.g. 6.5/7 = 93%). Enables fair comparison across study types regardless of design caps.</span>
+          </div>
+        </div>
+        """)
 
 
 # ── Main area ─────────────────────────────────────────────────────────────
@@ -661,30 +781,30 @@ st.html("""
 </div>
 """)
 
-tab_single, tab_batch = st.tabs(["Singolo PDF", "Analisi Batch"])
+tab_single, tab_batch = st.tabs(["Single PDF", "Batch Analysis"])
 
 # ── Tab 1: Single ─────────────────────────────────────────────────────────
 with tab_single:
     st.markdown("")
     uploaded_single = st.file_uploader(
-        "Carica un PDF per la valutazione di qualità metodologica (max 50 MB)",
+        "Upload a PDF for methodological quality assessment (max 50 MB)",
         type=["pdf"],
         accept_multiple_files=False,
     )
 
     if uploaded_single:
-        if st.button("Analizza Paper", type="primary", key="btn_single"):
+        if st.button("Analyze Paper", type="primary", key="btn_single"):
             api_key = _resolve_key()
-            with st.spinner("Gemini sta analizzando il paper..."):
+            with st.spinner("Gemini is analyzing the paper..."):
                 try:
                     result = _analyze_one(uploaded_single.read(), uploaded_single.name, api_key)
                     st.session_state["single_result"] = result
                     st.session_state["single_filename"] = uploaded_single.name
                 except QuotaExhaustedError:
-                    st.error("Quota Gemini esaurita. Riprova più tardi o usa un'altra chiave.")
+                    st.error("Gemini API quota exhausted. Try again later or use a different key.")
                     st.stop()
                 except InvalidAPIKeyError:
-                    st.error("API key Gemini non valida. Verificala su https://aistudio.google.com/apikey")
+                    st.error("Invalid Gemini API key. Verify it at https://aistudio.google.com/apikey")
                     st.stop()
 
     if "single_result" in st.session_state:
@@ -692,7 +812,7 @@ with tab_single:
         fname: str = st.session_state.get("single_filename", "paper.pdf")
 
         if r.error:
-            st.error(f"❌ Analisi fallita: {r.error}")
+            st.error(f"❌ Analysis failed: {r.error}")
         else:
             st.html(f"""
             <div class="row between" style="margin:12px 0">
@@ -707,17 +827,17 @@ with tab_single:
     elif not uploaded_single:
         st.html("""
         <div class="card" style="margin-top:16px">
-          <h2>Come funziona</h2>
-          <p class="sub">Pipeline di estrazione e scoring automatica.</p>
+          <h2>How it works</h2>
+          <p class="sub">Automated extraction and scoring pipeline.</p>
           <ol style="padding-left:18px;font-size:13.5px;line-height:1.9;color:#1a1d23">
-            <li><b>Estrazione</b> · L'AI legge abstract, metodi, sample, funding e conflitti di interessi</li>
-            <li><b>Selezione strumento</b> · PEDro (RCT) / AMSTAR-2 (SR/Meta) / NOS (Cohort) / GRADE (Consensus) / Generic</li>
-            <li><b>Scoring</b> · Punteggio grezzo + bonus istituzione/rivista/sample + penalty CoI</li>
-            <li><b>Verdetto</b> · Scala 5 tier (Gold → Black Flag) + ring di qualità normalizzato per confronto equo</li>
+            <li><b>Extraction</b> · AI reads abstract, methods, sample size, funding and conflicts of interest</li>
+            <li><b>Tool selection</b> · PEDro (RCT) / AMSTAR-2 (SR/Meta) / NOS (Cohort) / GRADE (Consensus) / Generic</li>
+            <li><b>Scoring</b> · Raw score + institution/journal/sample bonuses + COI penalty</li>
+            <li><b>Verdict</b> · 5-tier scale (Gold → Black Flag) + normalized quality ring for fair cross-design comparison</li>
           </ol>
           <div class="row wrap" style="gap:6px;margin-top:14px">
-            <span class="chip chip-silver">⚡ caching 24h</span>
-            <span class="chip chip-silver">🛡 CoI detector</span>
+            <span class="chip chip-silver">⚡ 24h caching</span>
+            <span class="chip chip-silver">🛡 COI detector</span>
             <span class="chip chip-silver">🏴 predatory check</span>
           </div>
         </div>
@@ -727,7 +847,7 @@ with tab_single:
 with tab_batch:
     st.markdown("")
     uploaded_batch = st.file_uploader(
-        "Carica fino a 10 PDF per confrontarli in un'unica run",
+        "Upload up to 10 PDFs to compare them in a single run",
         type=["pdf"],
         accept_multiple_files=True,
         key="batch_uploader",
@@ -735,33 +855,32 @@ with tab_batch:
 
     if uploaded_batch:
         if len(uploaded_batch) > 10:
-            st.warning("Massimo 10 file — solo i primi 10 saranno analizzati.")
+            st.warning("Maximum 10 files — only the first 10 will be analyzed.")
             uploaded_batch = uploaded_batch[:10]
-        st.caption(f"{len(uploaded_batch)} file selezionati")
+        st.caption(f"{len(uploaded_batch)} file(s) selected")
 
     if uploaded_batch:
-        if st.button("Analizza Batch", type="primary", key="btn_batch"):
+        if st.button("Analyze Batch", type="primary", key="btn_batch"):
             api_key = _resolve_key()
             results: list[AnalysisResult] = []
-            progress = st.progress(0, text="Avvio analisi batch...")
+            progress = st.progress(0, text="Starting batch analysis...")
             for i, f in enumerate(uploaded_batch):
-                progress.progress(i / len(uploaded_batch), text=f"Analisi {f.name} ({i+1}/{len(uploaded_batch)})...")
+                progress.progress(i / len(uploaded_batch), text=f"Analyzing {f.name} ({i+1}/{len(uploaded_batch)})...")
                 try:
                     r = _analyze_one(f.read(), f.name, api_key)
                     results.append(r)
                 except QuotaExhaustedError:
-                    st.error("Quota Gemini esaurita. Riprova più tardi.")
+                    st.error("Gemini API quota exhausted. Try again later.")
                     break
                 except InvalidAPIKeyError:
-                    st.error("API key non valida.")
+                    st.error("Invalid API key.")
                     break
-            progress.progress(1.0, text="Completato!")
+            progress.progress(1.0, text="Done!")
             st.session_state["batch_results"] = results
 
     if "batch_results" in st.session_state and st.session_state["batch_results"]:
         results: list[AnalysisResult] = st.session_state["batch_results"]
 
-        # Sort by category order then score
         cat_order = ["gold_standard", "practical_evidence", "exploratory", "weak", "black_flag", "error"]
         results_sorted = sorted(
             results,
@@ -769,7 +888,6 @@ with tab_batch:
                            -r.scoring.final_score),
         )
 
-        # Summary pills
         counts: dict[str, int] = {}
         for r in results:
             counts[r.scoring.category] = counts.get(r.scoring.category, 0) + 1
@@ -787,7 +905,6 @@ with tab_batch:
         )
         st.html(f'<div class="summary-row" style="margin-bottom:16px">{pills_html}</div>')
 
-        # Batch rows (Streamlit expanders with V2 detail inside)
         for r in results_sorted:
             sc = r.scoring
             ed = r.extracted
@@ -796,14 +913,11 @@ with tab_batch:
             if sc.pedro_score is not None:   tool_label += f" {sc.pedro_score}/10"
             elif sc.nos_score is not None:    tool_label += f" {sc.nos_score}/9"
             elif sc.amstar2_met is not None:  tool_label += f" {sc.amstar2_met}/16"
-            ring_sm = _ring_html(pct, size=36, stroke=4)
             title_display = ed.title or r.filename or "Paper"
-
-            # Expander label includes score + category badge text
             exp_label = f"{sc.category_label} · {sc.final_score:.1f}/{sc.design_cap:.1f} · {title_display[:60]}"
 
             with st.expander(exp_label):
                 if r.error:
-                    st.error(f"Analisi fallita: {r.error}")
+                    st.error(f"Analysis failed: {r.error}")
                 else:
                     st.html(_render_result_html(r, r.filename))
