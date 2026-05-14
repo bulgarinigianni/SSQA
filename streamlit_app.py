@@ -997,20 +997,57 @@ elif tab_active == "Batch Analysis":
     if uploaded_batch:
         if st.button("Analyze Batch", type="primary", key="btn_batch"):
             api_key = _resolve_key()
+            import time as _time
+
+            n = len(uploaded_batch)
+            SEC_PER_PDF = 20          # rough estimate per paper
+            est_total = n * SEC_PER_PDF
+
+            progress = st.progress(0, text="")
+            timer_slot = st.empty()
+
+            def _fmt(secs: float) -> str:
+                secs = max(0, int(secs))
+                m, s = divmod(secs, 60)
+                return f"{m}m {s:02d}s" if m else f"{s}s"
+
+            t_start = _time.time()
             results: list[AnalysisResult] = []
-            progress = st.progress(0, text="Starting batch analysis...")
+
             for i, f in enumerate(uploaded_batch):
-                progress.progress(i / len(uploaded_batch), text=f"Analyzing {f.name} ({i+1}/{len(uploaded_batch)})...")
+                elapsed = _time.time() - t_start
+                remaining_est = max(0, est_total - elapsed)
+                frac = i / n
+                progress.progress(
+                    frac,
+                    text=f"Paper {i+1}/{n} · {f.name[:40]}",
+                )
+                timer_slot.markdown(
+                    f"⏱ **{_fmt(elapsed)}** elapsed &nbsp;·&nbsp; "
+                    f"~{_fmt(remaining_est)} remaining &nbsp;·&nbsp; "
+                    f"~{SEC_PER_PDF}s per paper",
+                    unsafe_allow_html=True,
+                )
                 try:
                     r = _analyze_one(f.read(), f.name, api_key)
                     results.append(r)
+                    # recalibrate estimate with actual time so far
+                    done = i + 1
+                    if done > 0:
+                        SEC_PER_PDF = (_time.time() - t_start) / done
                 except QuotaExhaustedError:
                     st.error("Gemini API quota exhausted. Try again later.")
                     break
                 except InvalidAPIKeyError:
                     st.error("Invalid API key.")
                     break
-            progress.progress(1.0, text="Done!")
+
+            elapsed = _time.time() - t_start
+            progress.progress(1.0, text=f"Done! {n} papers analyzed")
+            timer_slot.markdown(
+                f"✅ Completed in **{_fmt(elapsed)}** "
+                f"({_fmt(elapsed / n) if n else '—'} per paper avg)"
+            )
             st.session_state["batch_results"] = results
 
     if "batch_results" in st.session_state and st.session_state["batch_results"]:
