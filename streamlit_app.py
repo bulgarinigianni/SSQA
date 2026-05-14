@@ -227,11 +227,14 @@ def _save_key_to_browser(key: str):
 
 # ── Async helper ──────────────────────────────────────────────────────────
 def _run_async(coro):
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
+    # Run in a dedicated thread so asyncio.run() always gets a clean loop.
+    # Using new_event_loop() directly can fail when httpx or other async
+    # objects are re-used across different loops ("bound to a different
+    # event loop"). A fresh thread has no existing loop, so asyncio.run()
+    # always works.
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+        return ex.submit(asyncio.run, coro).result()
 
 
 # ── Analysis pipeline ─────────────────────────────────────────────────────
