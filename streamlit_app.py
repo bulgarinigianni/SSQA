@@ -904,10 +904,19 @@ if tab_active == "Single PDF":
     if uploaded_single:
         if st.button("Analyze Paper", type="primary", key="btn_single"):
             api_key = _resolve_key()
-            prog = st.progress(0, text="Sending PDF to Gemini…")
             import threading, time as _time
 
+            prog = st.progress(0, text="Sending PDF to Gemini…")
+            timer_slot = st.empty()
+            t_start = _time.time()
+
             _done = {"v": False}
+
+            def _fmt(secs: float) -> str:
+                secs = max(0, int(secs))
+                m, s = divmod(secs, 60)
+                return f"{m}m {s:02d}s" if m else f"{s}s"
+
             def _tick():
                 steps = [
                     (0.15, "Extracting text and metadata…"),
@@ -916,17 +925,30 @@ if tab_active == "Single PDF":
                     (0.72, "Calculating bonuses & penalties…"),
                     (0.88, "Finalising score…"),
                 ]
-                for frac, msg in steps:
-                    if _done["v"]:
-                        return
-                    prog.progress(frac, text=msg)
-                    _time.sleep(4)
+                step_idx = 0
+                next_step_at = 4
+                elapsed_int = 0
+                while not _done["v"]:
+                    elapsed = _time.time() - t_start
+                    if step_idx < len(steps) and elapsed >= next_step_at:
+                        frac, msg = steps[step_idx]
+                        prog.progress(frac, text=msg)
+                        step_idx += 1
+                        next_step_at += 4
+                    timer_slot.markdown(
+                        f"⏱ **{_fmt(elapsed)}** elapsed &nbsp;·&nbsp; "
+                        f"~20s estimated",
+                    )
+                    _time.sleep(1)
+
             t = threading.Thread(target=_tick, daemon=True)
             t.start()
             try:
                 result = _analyze_one(uploaded_single.read(), uploaded_single.name, api_key)
                 _done["v"] = True
+                elapsed = _time.time() - t_start
                 prog.progress(1.0, text="Done!")
+                timer_slot.markdown(f"✅ Completed in **{_fmt(elapsed)}**")
                 st.session_state["single_result"] = result
                 st.session_state["single_filename"] = uploaded_single.name
             except QuotaExhaustedError:
@@ -997,11 +1019,10 @@ elif tab_active == "Batch Analysis":
     if uploaded_batch:
         if st.button("Analyze Batch", type="primary", key="btn_batch"):
             api_key = _resolve_key()
-            import time as _time
+            import threading, time as _time
 
             n = len(uploaded_batch)
-            SEC_PER_PDF = 20          # rough estimate per paper
-            est_total = n * SEC_PER_PDF
+            _sec_per_pdf = {"v": 20.0}
 
             progress = st.progress(0, text="")
             timer_slot = st.empty()
@@ -1012,29 +1033,33 @@ elif tab_active == "Batch Analysis":
                 return f"{m}m {s:02d}s" if m else f"{s}s"
 
             t_start = _time.time()
-            results: list[AnalysisResult] = []
+            _state = {"done": False, "i": 0, "fname": ""}
 
+            def _batch_tick():
+                while not _state["done"]:
+                    elapsed = _time.time() - t_start
+                    done_count = _state["i"]
+                    remaining_papers = n - done_count
+                    remaining_est = remaining_papers * _sec_per_pdf["v"]
+                    timer_slot.markdown(
+                        f"⏱ **{_fmt(elapsed)}** elapsed &nbsp;·&nbsp; "
+                        f"~{_fmt(remaining_est)} remaining &nbsp;·&nbsp; "
+                        f"~{int(_sec_per_pdf['v'])}s per paper",
+                    )
+                    _time.sleep(1)
+
+            t = threading.Thread(target=_batch_tick, daemon=True)
+            t.start()
+
+            results: list[AnalysisResult] = []
             for i, f in enumerate(uploaded_batch):
-                elapsed = _time.time() - t_start
-                remaining_est = max(0, est_total - elapsed)
-                frac = i / n
-                progress.progress(
-                    frac,
-                    text=f"Paper {i+1}/{n} · {f.name[:40]}",
-                )
-                timer_slot.markdown(
-                    f"⏱ **{_fmt(elapsed)}** elapsed &nbsp;·&nbsp; "
-                    f"~{_fmt(remaining_est)} remaining &nbsp;·&nbsp; "
-                    f"~{SEC_PER_PDF}s per paper",
-                    unsafe_allow_html=True,
-                )
+                _state["i"] = i
+                _state["fname"] = f.name
+                progress.progress(i / n, text=f"Paper {i+1}/{n} · {f.name[:40]}")
                 try:
                     r = _analyze_one(f.read(), f.name, api_key)
                     results.append(r)
-                    # recalibrate estimate with actual time so far
-                    done = i + 1
-                    if done > 0:
-                        SEC_PER_PDF = (_time.time() - t_start) / done
+                    _sec_per_pdf["v"] = (_time.time() - t_start) / (i + 1)
                 except QuotaExhaustedError:
                     st.error("Gemini API quota exhausted. Try again later.")
                     break
@@ -1042,6 +1067,7 @@ elif tab_active == "Batch Analysis":
                     st.error("Invalid API key.")
                     break
 
+            _state["done"] = True
             elapsed = _time.time() - t_start
             progress.progress(1.0, text=f"Done! {n} papers analyzed")
             timer_slot.markdown(
