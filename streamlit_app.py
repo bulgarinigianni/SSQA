@@ -729,7 +729,7 @@ with st.sidebar:
     <div style="border-top:1px solid var(--border);margin:1rem 0"></div>
 
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
-                color:var(--text-secondary);margin-bottom:6px">Quality % (ring)</div>
+                color:var(--text-secondary);margin-bottom:6px">Quality %</div>
     <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;line-height:1.5">
       Score as&nbsp;% of the design cap&nbsp;(e.g.&nbsp;6.5&nbsp;/&nbsp;7&nbsp;=&nbsp;93%).
       Allows fair comparison across study types with different caps (RCT max 10,
@@ -1042,9 +1042,9 @@ elif tab_active == "Batch Analysis":
 
         _cat_colors = {
             "gold_standard":      ("#d97706", "#fffbeb", "#fef3c7"),
-            "practical_evidence": ("#2563eb", "#eff6ff", "#dbeafe"),
-            "exploratory":        ("#7c3aed", "#f5f3ff", "#ede9fe"),
-            "weak":               ("#f59e0b", "#fffbeb", "#fef9c3"),
+            "practical_evidence": ("#475569", "#f1f5f9", "#e2e8f0"),
+            "exploratory":        ("#9a3412", "#fff7ed", "#ffedd5"),
+            "weak":               ("#2563eb", "#eff6ff", "#dbeafe"),
             "black_flag":         ("#111827", "#f3f4f6", "#e5e7eb"),
             "error":              ("#dc2626", "#fef2f2", "#fecaca"),
         }
@@ -1059,7 +1059,7 @@ elif tab_active == "Batch Analysis":
             elif sc.nos_score is not None:    tool_label += f" {sc.nos_score}/9"
             elif sc.amstar2_met is not None:  tool_label += f" {sc.amstar2_met}/16"
             title_display = ed.title or r.filename or "Paper"
-            ring_sm = _ring_html(pct, size=36, stroke=4)
+            ring_sm = _ring_html(pct, size=52, stroke=5)
             border_c, bg_c, bg_hover = _cat_colors.get(sc.category, ("#e2e5ea", "#ffffff", "#f7f8fa"))
             body = (
                 f'<div class="error-banner">❌ Analysis failed: {r.error}</div>'
