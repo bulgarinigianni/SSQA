@@ -276,6 +276,12 @@ def _resolve_key() -> str:
     return key
 
 
+def _clear_single_result():
+    st.session_state.pop("single_result", None)
+    st.session_state.pop("single_filename", None)
+    st.session_state.pop("single_elapsed", None)
+
+
 # ── V2 HTML helpers ───────────────────────────────────────────────────────
 
 def _ring_html(pct: int, size: int = 100, stroke: int = 6) -> str:
@@ -902,6 +908,7 @@ if tab_active == "Single PDF":
         type=["pdf"],
         accept_multiple_files=False,
         key="single_uploader",
+        on_change=_clear_single_result,
     )
 
     if uploaded_single:
@@ -909,25 +916,19 @@ if tab_active == "Single PDF":
             api_key = _resolve_key()
             import time as _time
 
+            import streamlit.components.v1 as _comps
             prog = st.progress(0, text="Sending PDF to Gemini…")
-            timer_slot = st.empty()
-            timer_slot.html("""
-            <div id="ssqa-timer" style="font-size:13px;color:var(--text-secondary);margin:8px 0">
-              ⏱ <strong id="ssqa-elapsed">0s</strong> elapsed · ~20s estimated
-            </div>
-            <script>
-            (function(){
-              var start = Date.now();
-              var el = document.getElementById('ssqa-elapsed');
-              if(!el) return;
-              window._ssqaTimerIv = setInterval(function(){
-                var s = Math.floor((Date.now()-start)/1000);
-                var m = Math.floor(s/60); s = s%60;
-                el.textContent = m>0 ? m+'m '+(s<10?'0':'')+s+'s' : s+'s';
-              }, 1000);
-            })();
-            </script>
-            """)
+            _comps.html("""
+<body style="margin:0;font-family:Inter,sans-serif;background:transparent">
+<div style="font-size:13px;color:#5f6571;padding:4px 0">
+  ⏱ <strong id="e">0s</strong> elapsed · ~20s estimated
+</div>
+<script>
+var s=Date.now();
+function fmt(t){var m=Math.floor(t/60);var r=t%60;return m>0?m+'m '+(r<10?'0':'')+r+'s':r+'s';}
+setInterval(function(){var el=document.getElementById('e');if(el)el.textContent=fmt(Math.floor((Date.now()-s)/1000));},500);
+</script>
+</body>""", height=32, scrolling=False)
             t_start = _time.time()
             try:
                 result = _analyze_one(uploaded_single.read(), uploaded_single.name, api_key)
@@ -935,24 +936,20 @@ if tab_active == "Single PDF":
                 prog.progress(1.0, text="Done!")
                 e_m, e_s = divmod(int(elapsed), 60)
                 e_str = f"{e_m}m {e_s:02d}s" if e_m else f"{e_s}s"
-                timer_slot.html(f"""
-                <div style="font-size:13px;color:#059669;margin:8px 0">
-                  ✅ Completed in <strong>{e_str}</strong>
-                </div>
-                <script>if(window._ssqaTimerIv) clearInterval(window._ssqaTimerIv);</script>
-                """)
                 st.session_state["single_result"] = result
                 st.session_state["single_filename"] = uploaded_single.name
+                st.session_state["single_elapsed"] = e_str
+                st.rerun()
             except QuotaExhaustedError:
-                timer_slot.html('<script>if(window._ssqaTimerIv) clearInterval(window._ssqaTimerIv);</script>')
                 st.error("Gemini API quota exhausted. Try again later or use a different key.")
                 st.stop()
             except InvalidAPIKeyError:
-                timer_slot.html('<script>if(window._ssqaTimerIv) clearInterval(window._ssqaTimerIv);</script>')
                 st.error("Invalid Gemini API key. Verify it at https://aistudio.google.com/apikey")
                 st.stop()
 
     if "single_result" in st.session_state:
+        if "single_elapsed" in st.session_state:
+            st.caption(f"✅ Analyzed in {st.session_state['single_elapsed']}")
         r: AnalysisResult = st.session_state["single_result"]
         fname: str = st.session_state.get("single_filename", "paper.pdf")
 
@@ -1016,30 +1013,19 @@ elif tab_active == "Batch Analysis":
             n = len(uploaded_batch)
             est_total = n * 20
 
+            import streamlit.components.v1 as _comps
             progress = st.progress(0, text="")
-            timer_slot = st.empty()
-            timer_slot.html(f"""
-            <div id="ssqa-batch-timer" style="font-size:13px;color:var(--text-secondary);margin:8px 0">
-              ⏱ <strong id="ssqa-b-elapsed">0s</strong> elapsed ·
-              ~<span id="ssqa-b-remaining">{est_total}s</span> remaining ·
-              <span id="ssqa-b-info">{n} papers</span>
-            </div>
-            <script>
-            (function(){{
-              var start = Date.now(), est={est_total};
-              var el=document.getElementById('ssqa-b-elapsed'),
-                  re=document.getElementById('ssqa-b-remaining');
-              if(!el) return;
-              function fmt(s){{ var m=Math.floor(s/60); s=s%60; return m>0?m+'m '+(s<10?'0':'')+s+'s':s+'s'; }}
-              window._ssqaBatchIv = setInterval(function(){{
-                var s=Math.floor((Date.now()-start)/1000);
-                el.textContent=fmt(s);
-                var r=Math.max(0,est-s); re.textContent=fmt(r);
-              }},1000);
-              window._ssqaUpdateEst=function(e){{ est=e; }};
-            }})();
-            </script>
-            """)
+            _comps.html(f"""
+<body style="margin:0;font-family:Inter,sans-serif;background:transparent">
+<div style="font-size:13px;color:#5f6571;padding:4px 0">
+  ⏱ <strong id="e">0s</strong> elapsed · {n} paper{'s' if n > 1 else ''} · ~{est_total}s estimated
+</div>
+<script>
+var s=Date.now();
+function fmt(t){{var m=Math.floor(t/60);var r=t%60;return m>0?m+'m '+(r<10?'0':'')+r+'s':r+'s';}}
+setInterval(function(){{var el=document.getElementById('e');if(el)el.textContent=fmt(Math.floor((Date.now()-s)/1000));}},500);
+</script>
+</body>""", height=32, scrolling=False)
 
             t_start = _time.time()
             results: list[AnalysisResult] = []
@@ -1048,12 +1034,6 @@ elif tab_active == "Batch Analysis":
                 try:
                     r = _analyze_one(f.read(), f.name, api_key)
                     results.append(r)
-                    avg = (_time.time() - t_start) / (i + 1)
-                    new_est = int(avg * n)
-                    streamlit_js_eval(
-                        js_expressions=f"window._ssqaUpdateEst&&window._ssqaUpdateEst({new_est})",
-                        key=f"update_est_{i}",
-                    )
                 except QuotaExhaustedError:
                     st.error("Gemini API quota exhausted. Try again later.")
                     break
@@ -1066,15 +1046,13 @@ elif tab_active == "Batch Analysis":
             e_str = f"{e_m}m {e_s:02d}s" if e_m else f"{e_s}s"
             avg_s = int(elapsed / n) if n else 0
             progress.progress(1.0, text=f"Done! {n} papers analyzed")
-            timer_slot.html(f"""
-            <div style="font-size:13px;color:#059669;margin:8px 0">
-              ✅ Completed in <strong>{e_str}</strong> ({avg_s}s per paper avg)
-            </div>
-            <script>if(window._ssqaBatchIv) clearInterval(window._ssqaBatchIv);</script>
-            """)
             st.session_state["batch_results"] = results
+            st.session_state["batch_elapsed"] = f"{e_str} ({avg_s}s/paper avg)"
+            st.rerun()
 
     if "batch_results" in st.session_state and st.session_state["batch_results"]:
+        if "batch_elapsed" in st.session_state:
+            st.caption(f"✅ Batch completed in {st.session_state['batch_elapsed']}")
         results: list[AnalysisResult] = st.session_state["batch_results"]
 
         cat_order = ["gold_standard", "practical_evidence", "exploratory", "weak", "black_flag", "error"]
