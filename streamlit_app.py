@@ -724,7 +724,7 @@ with st.sidebar:
     <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
                 color:var(--text-secondary);margin-bottom:10px">Verdict Scale</div>
     <div class="scale-row"><span class="cat-badge cat-gold_standard" style="font-size:11px;padding:3px 10px">🥇 Gold Standard</span><span class="rng">≥ 8.5</span></div>
-    <div class="scale-row"><span class="cat-badge cat-practical_evidence" style="font-size:11px;padding:3px 10px">🔵 Practical Evidence</span><span class="rng">7.0–8.4</span></div>
+    <div class="scale-row"><span class="cat-badge cat-practical_evidence" style="font-size:11px;padding:3px 10px">📊 Practical Evidence</span><span class="rng">7.0–8.4</span></div>
     <div class="scale-row"><span class="cat-badge cat-exploratory" style="font-size:11px;padding:3px 10px">🔬 Exploratory</span><span class="rng">5.0–6.9</span></div>
     <div class="scale-row"><span class="cat-badge cat-weak" style="font-size:11px;padding:3px 10px">⚠️ Weak</span><span class="rng">&lt; 5.0</span></div>
     <div class="scale-row"><span class="cat-badge cat-black_flag" style="font-size:11px;padding:3px 10px">🏴 Black Flag</span><span class="rng">predatory</span></div>
@@ -907,59 +907,48 @@ if tab_active == "Single PDF":
     if uploaded_single:
         if st.button("Analyze Paper", type="primary", key="btn_single"):
             api_key = _resolve_key()
-            import threading, time as _time
+            import time as _time
 
             prog = st.progress(0, text="Sending PDF to Gemini…")
             timer_slot = st.empty()
+            timer_slot.html("""
+            <div id="ssqa-timer" style="font-size:13px;color:var(--text-secondary);margin:8px 0">
+              ⏱ <strong id="ssqa-elapsed">0s</strong> elapsed · ~20s estimated
+            </div>
+            <script>
+            (function(){
+              var start = Date.now();
+              var el = document.getElementById('ssqa-elapsed');
+              if(!el) return;
+              window._ssqaTimerIv = setInterval(function(){
+                var s = Math.floor((Date.now()-start)/1000);
+                var m = Math.floor(s/60); s = s%60;
+                el.textContent = m>0 ? m+'m '+(s<10?'0':'')+s+'s' : s+'s';
+              }, 1000);
+            })();
+            </script>
+            """)
             t_start = _time.time()
-
-            _done = {"v": False}
-
-            def _fmt(secs: float) -> str:
-                secs = max(0, int(secs))
-                m, s = divmod(secs, 60)
-                return f"{m}m {s:02d}s" if m else f"{s}s"
-
-            def _tick():
-                steps = [
-                    (0.15, "Extracting text and metadata…"),
-                    (0.35, "Identifying study design…"),
-                    (0.55, "Running methodology checklist…"),
-                    (0.72, "Calculating bonuses & penalties…"),
-                    (0.88, "Finalising score…"),
-                ]
-                step_idx = 0
-                next_step_at = 4
-                elapsed_int = 0
-                while not _done["v"]:
-                    elapsed = _time.time() - t_start
-                    if step_idx < len(steps) and elapsed >= next_step_at:
-                        frac, msg = steps[step_idx]
-                        prog.progress(frac, text=msg)
-                        step_idx += 1
-                        next_step_at += 4
-                    timer_slot.markdown(
-                        f"⏱ **{_fmt(elapsed)}** elapsed &nbsp;·&nbsp; "
-                        f"~20s estimated",
-                    )
-                    _time.sleep(1)
-
-            t = threading.Thread(target=_tick, daemon=True)
-            t.start()
             try:
                 result = _analyze_one(uploaded_single.read(), uploaded_single.name, api_key)
-                _done["v"] = True
                 elapsed = _time.time() - t_start
                 prog.progress(1.0, text="Done!")
-                timer_slot.markdown(f"✅ Completed in **{_fmt(elapsed)}**")
+                e_m, e_s = divmod(int(elapsed), 60)
+                e_str = f"{e_m}m {e_s:02d}s" if e_m else f"{e_s}s"
+                timer_slot.html(f"""
+                <div style="font-size:13px;color:#059669;margin:8px 0">
+                  ✅ Completed in <strong>{e_str}</strong>
+                </div>
+                <script>if(window._ssqaTimerIv) clearInterval(window._ssqaTimerIv);</script>
+                """)
                 st.session_state["single_result"] = result
                 st.session_state["single_filename"] = uploaded_single.name
             except QuotaExhaustedError:
-                _done["v"] = True
+                timer_slot.html('<script>if(window._ssqaTimerIv) clearInterval(window._ssqaTimerIv);</script>')
                 st.error("Gemini API quota exhausted. Try again later or use a different key.")
                 st.stop()
             except InvalidAPIKeyError:
-                _done["v"] = True
+                timer_slot.html('<script>if(window._ssqaTimerIv) clearInterval(window._ssqaTimerIv);</script>')
                 st.error("Invalid Gemini API key. Verify it at https://aistudio.google.com/apikey")
                 st.stop()
 
@@ -984,7 +973,7 @@ if tab_active == "Single PDF":
             """)
             st.html(_render_result_html(r, fname))
 
-    elif not uploaded_single:
+    if "single_result" not in st.session_state:
         st.html("""
         <div class="card" style="margin-top:16px">
           <h2>How it works</h2>
@@ -993,7 +982,7 @@ if tab_active == "Single PDF":
             <li><b>Extraction</b> · AI reads abstract, methods, sample size, funding and conflicts of interest</li>
             <li><b>Tool selection</b> · PEDro (RCT) / AMSTAR-2 (SR/Meta) / NOS (Cohort) / GRADE (Consensus) / Generic</li>
             <li><b>Scoring</b> · Raw score + institution/journal/sample bonuses + COI penalty</li>
-            <li><b>Verdict</b> · 5-tier scale (Gold → Black Flag) + normalized quality ring for fair cross-design comparison</li>
+            <li><b>Verdict</b> · 5-tier scale (Gold → Black Flag) + normalized quality % for fair cross-design comparison</li>
           </ol>
           <div class="row wrap" style="gap:6px;margin-top:14px">
             <span class="chip chip-silver">⚡ 24h caching</span>
@@ -1022,47 +1011,49 @@ elif tab_active == "Batch Analysis":
     if uploaded_batch:
         if st.button("Analyze Batch", type="primary", key="btn_batch"):
             api_key = _resolve_key()
-            import threading, time as _time
+            import time as _time
 
             n = len(uploaded_batch)
-            _sec_per_pdf = {"v": 20.0}
+            est_total = n * 20
 
             progress = st.progress(0, text="")
             timer_slot = st.empty()
-
-            def _fmt(secs: float) -> str:
-                secs = max(0, int(secs))
-                m, s = divmod(secs, 60)
-                return f"{m}m {s:02d}s" if m else f"{s}s"
+            timer_slot.html(f"""
+            <div id="ssqa-batch-timer" style="font-size:13px;color:var(--text-secondary);margin:8px 0">
+              ⏱ <strong id="ssqa-b-elapsed">0s</strong> elapsed ·
+              ~<span id="ssqa-b-remaining">{est_total}s</span> remaining ·
+              <span id="ssqa-b-info">{n} papers</span>
+            </div>
+            <script>
+            (function(){{
+              var start = Date.now(), est={est_total};
+              var el=document.getElementById('ssqa-b-elapsed'),
+                  re=document.getElementById('ssqa-b-remaining');
+              if(!el) return;
+              function fmt(s){{ var m=Math.floor(s/60); s=s%60; return m>0?m+'m '+(s<10?'0':'')+s+'s':s+'s'; }}
+              window._ssqaBatchIv = setInterval(function(){{
+                var s=Math.floor((Date.now()-start)/1000);
+                el.textContent=fmt(s);
+                var r=Math.max(0,est-s); re.textContent=fmt(r);
+              }},1000);
+              window._ssqaUpdateEst=function(e){{ est=e; }};
+            }})();
+            </script>
+            """)
 
             t_start = _time.time()
-            _state = {"done": False, "i": 0, "fname": ""}
-
-            def _batch_tick():
-                while not _state["done"]:
-                    elapsed = _time.time() - t_start
-                    done_count = _state["i"]
-                    remaining_papers = n - done_count
-                    remaining_est = remaining_papers * _sec_per_pdf["v"]
-                    timer_slot.markdown(
-                        f"⏱ **{_fmt(elapsed)}** elapsed &nbsp;·&nbsp; "
-                        f"~{_fmt(remaining_est)} remaining &nbsp;·&nbsp; "
-                        f"~{int(_sec_per_pdf['v'])}s per paper",
-                    )
-                    _time.sleep(1)
-
-            t = threading.Thread(target=_batch_tick, daemon=True)
-            t.start()
-
             results: list[AnalysisResult] = []
             for i, f in enumerate(uploaded_batch):
-                _state["i"] = i
-                _state["fname"] = f.name
                 progress.progress(i / n, text=f"Paper {i+1}/{n} · {f.name[:40]}")
                 try:
                     r = _analyze_one(f.read(), f.name, api_key)
                     results.append(r)
-                    _sec_per_pdf["v"] = (_time.time() - t_start) / (i + 1)
+                    avg = (_time.time() - t_start) / (i + 1)
+                    new_est = int(avg * n)
+                    streamlit_js_eval(
+                        js_expressions=f"window._ssqaUpdateEst&&window._ssqaUpdateEst({new_est})",
+                        key=f"update_est_{i}",
+                    )
                 except QuotaExhaustedError:
                     st.error("Gemini API quota exhausted. Try again later.")
                     break
@@ -1070,13 +1061,17 @@ elif tab_active == "Batch Analysis":
                     st.error("Invalid API key.")
                     break
 
-            _state["done"] = True
             elapsed = _time.time() - t_start
+            e_m, e_s = divmod(int(elapsed), 60)
+            e_str = f"{e_m}m {e_s:02d}s" if e_m else f"{e_s}s"
+            avg_s = int(elapsed / n) if n else 0
             progress.progress(1.0, text=f"Done! {n} papers analyzed")
-            timer_slot.markdown(
-                f"✅ Completed in **{_fmt(elapsed)}** "
-                f"({_fmt(elapsed / n) if n else '—'} per paper avg)"
-            )
+            timer_slot.html(f"""
+            <div style="font-size:13px;color:#059669;margin:8px 0">
+              ✅ Completed in <strong>{e_str}</strong> ({avg_s}s per paper avg)
+            </div>
+            <script>if(window._ssqaBatchIv) clearInterval(window._ssqaBatchIv);</script>
+            """)
             st.session_state["batch_results"] = results
 
     if "batch_results" in st.session_state and st.session_state["batch_results"]:
@@ -1095,7 +1090,7 @@ elif tab_active == "Batch Analysis":
 
         pill_defs = [
             ("gold_standard", "🥇 Gold Standard"),
-            ("practical_evidence", "🔵 Practical Evidence"),
+            ("practical_evidence", "📊 Practical Evidence"),
             ("exploratory", "🔬 Exploratory"),
             ("weak", "⚠️ Weak"),
             ("black_flag", "🏴 Black Flag"),

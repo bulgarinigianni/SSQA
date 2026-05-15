@@ -36,7 +36,7 @@ const HSidebar = ({ collapsed, onToggle }) => {
       </div>
       <div className="sidebar-section">
         <div className="scale-row"><span className="cat-badge cat-gold_standard">🥇 Gold</span><span className="rng">≥ 8.5</span></div>
-        <div className="scale-row"><span className="cat-badge cat-practical_evidence">🔵 Practical</span><span className="rng">7.0–8.4</span></div>
+        <div className="scale-row"><span className="cat-badge cat-practical_evidence">📊 Practical</span><span className="rng">7.0–8.4</span></div>
         <div className="scale-row"><span className="cat-badge cat-exploratory">🔬 Explor.</span><span className="rng">5.0–6.9</span></div>
         <div className="scale-row"><span className="cat-badge cat-weak">⚠️ Weak</span><span className="rng">&lt; 5.0</span></div>
         <div className="scale-row"><span className="cat-badge cat-black_flag">🏴 Black</span><span className="rng">predatory</span></div>

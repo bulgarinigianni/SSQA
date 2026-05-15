@@ -114,7 +114,7 @@ const BatchResultsScreen = ({ results, onReset }) => {
 
   const summaryDefs = [
     { key: 'gold_standard',      label: '🥇 Gold Standard',     cls: 'cat-gold_standard' },
-    { key: 'practical_evidence', label: '🔵 Practical Evidence', cls: 'cat-practical_evidence' },
+    { key: 'practical_evidence', label: '📊 Practical Evidence', cls: 'cat-practical_evidence' },
     { key: 'exploratory',        label: '🔬 Exploratory',        cls: 'cat-exploratory' },
     { key: 'weak',               label: '⚠️ Weak',              cls: 'cat-weak' },
     { key: 'black_flag',         label: '🏴 Black Flag',         cls: 'cat-black_flag' },
