@@ -13,7 +13,16 @@ from streamlit_js_eval import streamlit_js_eval
 
 from app.config import settings
 from app.extractor import InvalidAPIKeyError, QuotaExhaustedError, extract_paper_data
-from app.models import AnalysisResult, ConfidenceReport, ExtractedData, ScoringBreakdown
+from app.models import (
+    AMSTAR2Criteria,
+    AnalysisResult,
+    ConfidenceReport,
+    ExtractedData,
+    GRADECriteria,
+    NOSCriteria,
+    PEDroCriteria,
+    ScoringBreakdown,
+)
 from app.pdf_parser import extract_text
 from app.scoring import score_paper
 
@@ -346,8 +355,8 @@ def _brk(label: str, val: str, note: str = "", bar: int | None = None, muted: bo
 def _methodology_html(ed: ExtractedData, sc: ScoringBreakdown) -> str:
     tool = sc.methodology_tool
 
-    if tool == "PEDro" and ed.pedro_criteria:
-        p = ed.pedro_criteria
+    if tool == "PEDro":
+        p = ed.pedro_criteria or PEDroCriteria()
         crits = [
             ("C1",  "Eligibility criteria specified",          p.c1_eligibility_specified),
             ("C2",  "Random allocation",                       p.c2_random_allocation),
@@ -378,8 +387,8 @@ def _methodology_html(ed: ExtractedData, sc: ScoringBreakdown) -> str:
             f'</div>'
         )
 
-    if tool == "AMSTAR-2" and ed.amstar2_criteria:
-        a = ed.amstar2_criteria
+    if tool == "AMSTAR-2":
+        a = ed.amstar2_criteria or AMSTAR2Criteria()
         critical = {"A2", "A4", "A7", "A9", "A11", "A13", "A15"}
         crits = [
             ("A1",  "PICO components in research question",     a.a1_pico),
@@ -416,8 +425,8 @@ def _methodology_html(ed: ExtractedData, sc: ScoringBreakdown) -> str:
             f'</div>'
         )
 
-    if tool == "NOS" and ed.nos_criteria:
-        n = ed.nos_criteria
+    if tool == "NOS":
+        n = ed.nos_criteria or NOSCriteria()
         crits = [
             ("S1", "Selection — Representativeness of exposed cohort",   n.s1_representativeness),
             ("S2", "Selection — Non-exposed cohort drawn from same community", n.s2_non_exposed_selection),
@@ -446,8 +455,8 @@ def _methodology_html(ed: ExtractedData, sc: ScoringBreakdown) -> str:
             f'</div>'
         )
 
-    if tool == "GRADE" and ed.grade_criteria:
-        g = ed.grade_criteria
+    if tool == "GRADE":
+        g = ed.grade_criteria or GRADECriteria()
         crits = [
             ("G1", "Systematic search strategy used",                g.g1_systematic_search),
             ("G2", "Evidence quality explicitly graded",             g.g2_evidence_graded),
