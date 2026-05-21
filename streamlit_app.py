@@ -427,17 +427,35 @@ def _methodology_html(ed: ExtractedData, sc: ScoringBreakdown) -> str:
 
     if tool == "NOS":
         n = ed.nos_criteria or NOSCriteria()
-        crits = [
-            ("S1", "Selection — Representativeness of exposed cohort",   n.s1_representativeness),
-            ("S2", "Selection — Non-exposed cohort drawn from same community", n.s2_non_exposed_selection),
-            ("S3", "Selection — Ascertainment of exposure",              n.s3_exposure_ascertainment),
-            ("S4", "Selection — Outcome not present at start",           n.s4_outcome_not_present),
-            ("C1", "Comparability — Controls for primary factor",        n.c1_primary_factor),
-            ("C2", "Comparability — Controls for additional factor",     n.c2_additional_factor),
-            ("O1", "Outcome — Independent blind assessment",             n.o1_outcome_assessment),
-            ("O2", "Outcome — Follow-up long enough for outcome",        n.o2_followup_length),
-            ("O3", "Outcome — Adequacy of follow-up (low attrition)",    n.o3_followup_adequacy),
-        ]
+        is_cs = (ed.study_design or "").lower() in ("cross_sectional", "cross-sectional")
+        if is_cs:
+            crits = [
+                ("S1", "Selection — Representativeness of the sample",       n.s1_representativeness),
+                ("S2", "Selection — Sample size justified and satisfactory",  n.s2_non_exposed_selection),
+                ("S3", "Selection — Exposure measured with validated tool",   n.s3_exposure_ascertainment),
+                ("S4", "Selection — Non-respondents addressed",              n.s4_outcome_not_present),
+                ("C1", "Comparability — Controls for primary confounder",    n.c1_primary_factor),
+                ("C2", "Comparability — Controls for additional confounders", n.c2_additional_factor),
+                ("O1", "Outcome — Validated measurement tool used",          n.o1_outcome_assessment),
+                ("O2", "Outcome — Statistical test appropriate and described", n.o2_followup_length),
+                ("O3", "Outcome — Data completeness adequate (< 20% missing)", n.o3_followup_adequacy),
+            ]
+            subtitle = "Modified NOS for Cross-Sectional · 9 stars"
+            note = "Adapted criteria: S2 = sample size, S4 = non-respondents, O2 = statistical test, O3 = data completeness"
+        else:
+            crits = [
+                ("S1", "Selection — Representativeness of exposed cohort",   n.s1_representativeness),
+                ("S2", "Selection — Non-exposed cohort drawn from same community", n.s2_non_exposed_selection),
+                ("S3", "Selection — Ascertainment of exposure",              n.s3_exposure_ascertainment),
+                ("S4", "Selection — Outcome not present at start",           n.s4_outcome_not_present),
+                ("C1", "Comparability — Controls for primary factor",        n.c1_primary_factor),
+                ("C2", "Comparability — Controls for additional factor",     n.c2_additional_factor),
+                ("O1", "Outcome — Independent blind assessment",             n.o1_outcome_assessment),
+                ("O2", "Outcome — Follow-up long enough for outcome",        n.o2_followup_length),
+                ("O3", "Outcome — Adequacy of follow-up (low attrition)",    n.o3_followup_adequacy),
+            ]
+            subtitle = "Cohort &amp; Cross-Sectional · 9 stars"
+            note = "Three domains: Selection (S1–S4), Comparability (C1–C2), Outcome (O1–O3)"
         score = sc.nos_score if sc.nos_score is not None else sum(1 for _, _, v in crits if v is True)
         bar = round(score / 9 * 100)
         rows = "".join(_crit(code, label, val) for code, label, val in crits)
@@ -445,12 +463,12 @@ def _methodology_html(ed: ExtractedData, sc: ScoringBreakdown) -> str:
             f'<div class="card">'
             f'<div class="row between" style="margin-bottom:10px">'
             f'<div><span style="font-size:16px;font-weight:600">🔬 Newcastle-Ottawa Scale</span>'
-            f'<span class="muted" style="margin-left:8px;font-size:13px">Cohort &amp; Cross-Sectional · 9 stars</span></div>'
+            f'<span class="muted" style="margin-left:8px;font-size:13px">{subtitle}</span></div>'
             f'<div style="font-family:JetBrains Mono,monospace;font-size:20px;font-weight:700">'
             f'{score}<span class="muted" style="font-size:14px"> / 9</span></div></div>'
             f'<div style="height:6px;background:#e2e5ea;border-radius:3px;overflow:hidden;margin-bottom:4px">'
             f'<div style="width:{bar}%;height:100%;background:#475569"></div></div>'
-            f'<p class="muted" style="font-size:11px;margin-top:6px">Three domains: Selection (S1–S4), Comparability (C1–C2), Outcome (O1–O3)</p>'
+            f'<p class="muted" style="font-size:11px;margin-top:6px">{note}</p>'
             f'<div class="crit-list">{rows}</div>'
             f'</div>'
         )
@@ -846,7 +864,7 @@ with st.sidebar:
           </div>
           <div style="margin-bottom:10px">
             <div style="font-weight:600;margin-bottom:2px">NOS <span style="color:var(--text-secondary);font-weight:400">→ Cohort &amp; Cross-Sectional</span></div>
-            <div style="color:var(--text-secondary)">9 stars: Selection (S1–S4), Comparability (C1–C2), Outcome (O1–O3).</div>
+            <div style="color:var(--text-secondary)">9 stars: Selection (S1–S4), Comparability (C1–C2), Outcome (O1–O3). Cross-sectional uses adapted criteria (sample size, non-respondents, statistical test).</div>
           </div>
           <div style="margin-bottom:10px">
             <div style="font-weight:600;margin-bottom:2px">GRADE <span style="color:var(--text-secondary);font-weight:400">→ Consensus Statements</span></div>

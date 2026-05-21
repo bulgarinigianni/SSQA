@@ -174,6 +174,16 @@ IMPORTANT:
 - pedro_criteria should ONLY be filled in if study_design is "rct". For all other designs, set pedro_criteria to null.
 - amstar2_criteria should ONLY be filled in if study_design is "meta_analysis" or "systematic_review". For all other designs, set amstar2_criteria to null. Pay careful attention to critical items (A2, A4, A7, A9, A11, A13, A15) — these carry extra weight in scoring.
 - nos_criteria should ONLY be filled in if study_design is "prospective_cohort" or "cross_sectional". For all other designs, set nos_criteria to null. NOS uses 3 domains: Selection (S1-S4), Comparability (C1-C2), Outcome (O1-O3). Each item earns 1 star if met.
+  FOR CROSS-SECTIONAL STUDIES, reinterpret the NOS fields as follows (modified NOS-CS):
+    s1_representativeness → true if sample is truly or somewhat representative of the target population
+    s2_non_exposed_selection → true if sample size is justified and satisfactory (≥ power analysis or ≥ 50)
+    s3_exposure_ascertainment → true if exposure/risk factor measured with validated instrument or objective measure
+    s4_outcome_not_present → true if non-respondents are addressed (response rate reported and acceptable, or comparability between respondents and non-respondents established)
+    c1_primary_factor → true if study controls for the most important confounding factor
+    c2_additional_factor → true if study controls for additional confounding factors
+    o1_outcome_assessment → true if outcome assessed with validated measurement tool or objective measure
+    o2_followup_length → true if statistical test used is clearly described and appropriate for the data
+    o3_followup_adequacy → true if data completeness is adequate (missing data < 20% or properly handled)
 - grade_criteria should ONLY be filled in if study_design is "consensus_statement". For all other designs, set grade_criteria to null. Assess the consensus process quality: was evidence systematically searched, was it graded, was a formal consensus method used (Delphi, nominal group, voting), was the panel multidisciplinary, were COI managed, were recommendation strengths stated, were evidence gaps acknowledged, was external review conducted.
 - funder_sells_product is CRITICAL. Examine funding disclosures, COI statements, and author affiliations very carefully.
 - coi_severity: use "obvious" ONLY when the evidence is undeniable (e.g. company X funds study AND company X sells the exact product being tested). If it is merely suspicious or indirect, use "ambiguous". Do NOT inflate — false COI flags damage good research.
