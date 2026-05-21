@@ -289,6 +289,7 @@ def _clear_single_result():
     st.session_state.pop("single_result", None)
     st.session_state.pop("single_filename", None)
     st.session_state.pop("single_elapsed", None)
+    st.session_state.pop("single_error", None)
 
 
 # ── V2 HTML helpers ───────────────────────────────────────────────────────
@@ -968,11 +969,52 @@ setInterval(function(){var el=document.getElementById('e');if(el)el.textContent=
                 st.session_state["single_elapsed"] = e_str
                 st.rerun()
             except QuotaExhaustedError:
-                st.error("Gemini API quota exhausted. Try again later or use a different key.")
-                st.stop()
+                st.session_state["single_error"] = "quota"
+                st.rerun()
             except InvalidAPIKeyError:
-                st.error("Invalid Gemini API key. Verify it at https://aistudio.google.com/apikey")
-                st.stop()
+                st.session_state["single_error"] = "apikey"
+                st.rerun()
+
+    if "single_error" in st.session_state:
+        _err = st.session_state["single_error"]
+        if _err == "quota":
+            st.html("""
+            <div style="background:#fef2f2;border:1px solid #fca5a5;border-left:4px solid #dc2626;
+                        border-radius:8px;padding:16px 20px;margin:12px 0">
+              <div style="font-weight:600;color:#dc2626;font-size:14px;margin-bottom:4px">
+                ⚠️ Gemini API quota exhausted
+              </div>
+              <div style="font-size:13px;color:#7f1d1d;line-height:1.6">
+                Il tuo piano gratuito ha esaurito i token disponibili.<br>
+                Attendi qualche minuto e riprova, oppure usa una chiave API diversa
+                (puoi crearne una gratuita su
+                <a href="https://aistudio.google.com/apikey" target="_blank"
+                   style="color:#dc2626">aistudio.google.com</a>).<br>
+                <span style="color:#9ca3af;font-size:11px">
+                  Questo messaggio sparirà quando carichi un nuovo PDF.
+                </span>
+              </div>
+            </div>
+            """)
+        elif _err == "apikey":
+            st.html("""
+            <div style="background:#fef2f2;border:1px solid #fca5a5;border-left:4px solid #dc2626;
+                        border-radius:8px;padding:16px 20px;margin:12px 0">
+              <div style="font-weight:600;color:#dc2626;font-size:14px;margin-bottom:4px">
+                ❌ Chiave API non valida
+              </div>
+              <div style="font-size:13px;color:#7f1d1d;line-height:1.6">
+                La chiave Gemini inserita non è valida o è scaduta.<br>
+                Verificala o generane una nuova su
+                <a href="https://aistudio.google.com/apikey" target="_blank"
+                   style="color:#dc2626">aistudio.google.com</a>
+                e aggiornala nella sidebar.<br>
+                <span style="color:#9ca3af;font-size:11px">
+                  Questo messaggio sparirà quando carichi un nuovo PDF.
+                </span>
+              </div>
+            </div>
+            """)
 
     if "single_result" in st.session_state:
         if "single_elapsed" in st.session_state:
@@ -1036,6 +1078,9 @@ elif tab_active == "Batch Analysis":
         if st.button("Analyze Batch", type="primary", key="btn_batch"):
             api_key = _resolve_key()
             import time as _time
+            st.session_state.pop("batch_error", None)
+            st.session_state.pop("batch_results", None)
+            st.session_state.pop("batch_elapsed", None)
 
             n = len(uploaded_batch)
             est_total = n * 20
@@ -1062,23 +1107,69 @@ setInterval(function(){{var el=document.getElementById('e');if(el)el.textContent
                     r = _analyze_one(f.read(), f.name, api_key)
                     results.append(r)
                 except QuotaExhaustedError:
-                    st.error("Gemini API quota exhausted. Try again later.")
+                    st.session_state["batch_error"] = "quota"
                     break
                 except InvalidAPIKeyError:
-                    st.error("Invalid API key.")
+                    st.session_state["batch_error"] = "apikey"
                     break
 
             elapsed = _time.time() - t_start
             e_m, e_s = divmod(int(elapsed), 60)
             e_str = f"{e_m}m {e_s:02d}s" if e_m else f"{e_s}s"
             avg_s = int(elapsed / n) if n else 0
-            progress.progress(1.0, text=f"Done! {n} papers analyzed")
-            st.session_state["batch_results"] = results
-            st.session_state["batch_elapsed"] = f"{e_str} ({avg_s}s/paper avg)"
+            if results:
+                progress.progress(1.0, text=f"Done! {len(results)}/{n} papers analyzed")
+                st.session_state["batch_results"] = results
+                st.session_state["batch_elapsed"] = f"{e_str} ({avg_s}s/paper avg)"
+            else:
+                progress.empty()
             st.rerun()
 
+    if "batch_error" in st.session_state:
+        _berr = st.session_state["batch_error"]
+        _partial = len(st.session_state.get("batch_results") or [])
+        _partial_note = f" ({_partial} paper{'s' if _partial != 1 else ''} already analyzed and shown below)" if _partial else ""
+        if _berr == "quota":
+            st.html(f"""
+            <div style="background:#fef2f2;border:1px solid #fca5a5;border-left:4px solid #dc2626;
+                        border-radius:8px;padding:16px 20px;margin:12px 0">
+              <div style="font-weight:600;color:#dc2626;font-size:14px;margin-bottom:4px">
+                ⚠️ Gemini API quota exhausted{_partial_note}
+              </div>
+              <div style="font-size:13px;color:#7f1d1d;line-height:1.6">
+                Il tuo piano gratuito ha esaurito i token disponibili.<br>
+                Attendi qualche minuto e riprova, oppure usa una chiave API diversa
+                (puoi crearne una gratuita su
+                <a href="https://aistudio.google.com/apikey" target="_blank"
+                   style="color:#dc2626">aistudio.google.com</a>).<br>
+                <span style="color:#9ca3af;font-size:11px">
+                  Questo messaggio sparirà quando avvii una nuova analisi.
+                </span>
+              </div>
+            </div>
+            """)
+        elif _berr == "apikey":
+            st.html("""
+            <div style="background:#fef2f2;border:1px solid #fca5a5;border-left:4px solid #dc2626;
+                        border-radius:8px;padding:16px 20px;margin:12px 0">
+              <div style="font-weight:600;color:#dc2626;font-size:14px;margin-bottom:4px">
+                ❌ Chiave API non valida
+              </div>
+              <div style="font-size:13px;color:#7f1d1d;line-height:1.6">
+                La chiave Gemini inserita non è valida o è scaduta.<br>
+                Verificala o generane una nuova su
+                <a href="https://aistudio.google.com/apikey" target="_blank"
+                   style="color:#dc2626">aistudio.google.com</a>
+                e aggiornala nella sidebar.<br>
+                <span style="color:#9ca3af;font-size:11px">
+                  Questo messaggio sparirà quando avvii una nuova analisi.
+                </span>
+              </div>
+            </div>
+            """)
+
     if "batch_results" in st.session_state and st.session_state["batch_results"]:
-        if "batch_elapsed" in st.session_state:
+        if "batch_elapsed" in st.session_state and "batch_error" not in st.session_state:
             st.caption(f"✅ Batch completed in {st.session_state['batch_elapsed']}")
         results: list[AnalysisResult] = st.session_state["batch_results"]
 
