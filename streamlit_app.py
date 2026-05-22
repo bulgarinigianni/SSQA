@@ -985,13 +985,13 @@ setInterval(function(){var el=document.getElementById('e');if(el)el.textContent=
                 ⚠️ Gemini API quota exhausted
               </div>
               <div style="font-size:13px;color:#7f1d1d;line-height:1.6">
-                Il tuo piano gratuito ha esaurito i token disponibili.<br>
-                Attendi qualche minuto e riprova, oppure usa una chiave API diversa
-                (puoi crearne una gratuita su
+                Your free-tier token quota has been used up.<br>
+                Wait a few minutes and try again, or use a different API key
+                (you can create a free one at
                 <a href="https://aistudio.google.com/apikey" target="_blank"
                    style="color:#dc2626">aistudio.google.com</a>).<br>
                 <span style="color:#9ca3af;font-size:11px">
-                  Questo messaggio sparirà quando carichi un nuovo PDF.
+                  This message will disappear when you upload a new PDF.
                 </span>
               </div>
             </div>
@@ -1001,16 +1001,16 @@ setInterval(function(){var el=document.getElementById('e');if(el)el.textContent=
             <div style="background:#fef2f2;border:1px solid #fca5a5;border-left:4px solid #dc2626;
                         border-radius:8px;padding:16px 20px;margin:12px 0">
               <div style="font-weight:600;color:#dc2626;font-size:14px;margin-bottom:4px">
-                ❌ Chiave API non valida
+                ❌ Invalid API key
               </div>
               <div style="font-size:13px;color:#7f1d1d;line-height:1.6">
-                La chiave Gemini inserita non è valida o è scaduta.<br>
-                Verificala o generane una nuova su
+                The Gemini key you entered is invalid or has expired.<br>
+                Verify it or generate a new one at
                 <a href="https://aistudio.google.com/apikey" target="_blank"
                    style="color:#dc2626">aistudio.google.com</a>
-                e aggiornala nella sidebar.<br>
+                and update it in the sidebar.<br>
                 <span style="color:#9ca3af;font-size:11px">
-                  Questo messaggio sparirà quando carichi un nuovo PDF.
+                  This message will disappear when you upload a new PDF.
                 </span>
               </div>
             </div>
@@ -1137,13 +1137,13 @@ setInterval(function(){{var el=document.getElementById('e');if(el)el.textContent
                 ⚠️ Gemini API quota exhausted{_partial_note}
               </div>
               <div style="font-size:13px;color:#7f1d1d;line-height:1.6">
-                Il tuo piano gratuito ha esaurito i token disponibili.<br>
-                Attendi qualche minuto e riprova, oppure usa una chiave API diversa
-                (puoi crearne una gratuita su
+                Your free-tier token quota has been used up.<br>
+                Wait a few minutes and try again, or use a different API key
+                (you can create a free one at
                 <a href="https://aistudio.google.com/apikey" target="_blank"
                    style="color:#dc2626">aistudio.google.com</a>).<br>
                 <span style="color:#9ca3af;font-size:11px">
-                  Questo messaggio sparirà quando avvii una nuova analisi.
+                  This message will disappear when you start a new analysis.
                 </span>
               </div>
             </div>
@@ -1153,16 +1153,16 @@ setInterval(function(){{var el=document.getElementById('e');if(el)el.textContent
             <div style="background:#fef2f2;border:1px solid #fca5a5;border-left:4px solid #dc2626;
                         border-radius:8px;padding:16px 20px;margin:12px 0">
               <div style="font-weight:600;color:#dc2626;font-size:14px;margin-bottom:4px">
-                ❌ Chiave API non valida
+                ❌ Invalid API key
               </div>
               <div style="font-size:13px;color:#7f1d1d;line-height:1.6">
-                La chiave Gemini inserita non è valida o è scaduta.<br>
-                Verificala o generane una nuova su
+                The Gemini key you entered is invalid or has expired.<br>
+                Verify it or generate a new one at
                 <a href="https://aistudio.google.com/apikey" target="_blank"
                    style="color:#dc2626">aistudio.google.com</a>
-                e aggiornala nella sidebar.<br>
+                and update it in the sidebar.<br>
                 <span style="color:#9ca3af;font-size:11px">
-                  Questo messaggio sparirà quando avvii una nuova analisi.
+                  This message will disappear when you start a new analysis.
                 </span>
               </div>
             </div>
