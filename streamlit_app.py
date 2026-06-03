@@ -875,6 +875,10 @@ with st.sidebar:
             <div style="font-weight:600;margin-bottom:2px">Generic <span style="color:var(--text-secondary);font-weight:400">→ All other designs</span></div>
             <div style="color:var(--text-secondary)">Starts at 60% of cap, adjusted by sample size, effect sizes, CIs.</div>
           </div>
+          <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+            <div style="font-weight:600;margin-bottom:4px;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-secondary)">Why narrative reviews &amp; expert opinions score lower</div>
+            <div style="color:var(--text-secondary)">These designs have a hard cap of 6.0/10 and can never reach Gold Standard or Practical Evidence. Unlike RCTs or systematic reviews, they lack a reproducible search strategy and formal selection criteria, making them inherently susceptible to author bias. Valuable context — not definitive evidence.</div>
+          </div>
         </div>
         """)
 
